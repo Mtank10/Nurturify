@@ -6,6 +6,10 @@ import { Learning } from './pages/Learning';
 import { Wellness } from './pages/Wellness';
 import { Career } from './pages/Career';
 import { Settings } from './pages/Settings';
+import { Communication } from './pages/Communication';
+import { Resources } from './pages/Resources';
+import { Analytics } from './pages/Analytics';
+import { Gamification } from './pages/Gamification';
 import { AIAssistant } from './components/chat/AIAssistant';
 import { Button } from './components/ui/Button';
 import { Bot } from 'lucide-react';
@@ -26,6 +30,14 @@ function App() {
         return <Career />;
       case 'settings':
         return <Settings />;
+      case 'communication':
+        return <Communication />;
+      case 'resources':
+        return <Resources />;
+      case 'analytics':
+        return <Analytics />;
+      case 'gamification':
+        return <Gamification />;
       default:
         return (
           <div className="flex items-center justify-center h-full">
