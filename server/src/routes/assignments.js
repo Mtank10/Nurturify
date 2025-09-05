@@ -1,7 +1,7 @@
 import express from 'express';
-import Assignment from '../models/Assignment.js';
-import Subject from '../models/Subject.js';
-import { protect, authorize } from '../middleware/auth.js';
+import prisma from '../config/database.js';
+import { protect, authorize, checkResourceOwnership } from '../middleware/auth.js';
+import { validate, createAssignmentSchema, submitAssignmentSchema, gradeAssignmentSchema } from '../utils/validation.js';
 import multer from 'multer';
 import path from 'path';
 
@@ -23,7 +23,6 @@ const upload = multer({
     fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10485760 // 10MB
   },
   fileFilter: function (req, file, cb) {
-    // Allow common file types
     const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|rar/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
@@ -36,70 +35,150 @@ const upload = multer({
   }
 });
 
-// @desc    Get all assignments for a user
+// @desc    Get all assignments
 // @route   GET /api/assignments
 // @access  Private
 router.get('/', protect, async (req, res, next) => {
   try {
-    let query = {};
-    
+    const {
+      page = 1,
+      limit = 10,
+      classId,
+      type,
+      status,
+      dueDate
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    let where = {};
+
+    // Apply filters based on user role
     if (req.user.role === 'student') {
-      query.students = req.user.id;
+      // Students see assignments from their enrolled classes
+      where.class = {
+        studentClasses: {
+          some: {
+            studentId: req.user.student.id,
+            status: 'active'
+          }
+        }
+      };
     } else if (req.user.role === 'teacher') {
-      query.teacher = req.user.id;
+      // Teachers see assignments they created
+      where.createdBy = req.user.id;
     }
 
-    // Add filters
-    if (req.query.subject) {
-      query.subject = req.query.subject;
-    }
+    // Apply additional filters
+    if (classId) where.classId = classId;
+    if (type) where.type = type;
     
-    if (req.query.status) {
+    if (status) {
       const now = new Date();
-      switch (req.query.status) {
+      switch (status) {
         case 'upcoming':
-          query.dueDate = { $gte: now };
+          where.dueDate = { gte: now };
           break;
         case 'overdue':
-          query.dueDate = { $lt: now };
+          where.dueDate = { lt: now };
           break;
         case 'due-today':
           const startOfDay = new Date(now.setHours(0, 0, 0, 0));
           const endOfDay = new Date(now.setHours(23, 59, 59, 999));
-          query.dueDate = { $gte: startOfDay, $lte: endOfDay };
+          where.dueDate = { gte: startOfDay, lte: endOfDay };
           break;
       }
     }
 
-    const assignments = await Assignment.find(query)
-      .populate('subject', 'name color')
-      .populate('teacher', 'firstName lastName')
-      .sort({ dueDate: 1 });
+    if (dueDate) {
+      where.dueDate = {
+        gte: new Date(dueDate),
+        lt: new Date(new Date(dueDate).getTime() + 24 * 60 * 60 * 1000)
+      };
+    }
 
-    // For students, add submission status
-    if (req.user.role === 'student') {
-      const assignmentsWithStatus = assignments.map(assignment => {
-        const submission = assignment.getSubmissionByStudent(req.user.id);
+    const [assignments, total] = await Promise.all([
+      prisma.assignment.findMany({
+        where,
+        skip,
+        take: parseInt(limit),
+        include: {
+          class: {
+            include: {
+              subject: {
+                select: {
+                  name: true,
+                  code: true,
+                  colorCode: true
+                }
+              },
+              teacher: {
+                select: {
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            }
+          },
+          creator: {
+            select: {
+              id: true
+            }
+          },
+          submissions: req.user.role === 'student' ? {
+            where: { studentId: req.user.student?.id },
+            select: {
+              id: true,
+              status: true,
+              submittedAt: true,
+              marksObtained: true,
+              isLate: true
+            }
+          } : {
+            select: {
+              id: true,
+              status: true,
+              student: {
+                select: {
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            }
+          },
+          _count: {
+            submissions: true
+          }
+        },
+        orderBy: { dueDate: 'asc' }
+      }),
+      prisma.assignment.count({ where })
+    ]);
+
+    // Add submission status for students
+    const assignmentsWithStatus = assignments.map(assignment => {
+      if (req.user.role === 'student') {
+        const submission = assignment.submissions[0];
         return {
-          ...assignment.toObject(),
-          submissionStatus: submission ? submission.status : 'not-submitted',
+          ...assignment,
+          submissionStatus: submission?.status || 'not-submitted',
           isSubmitted: !!submission,
-          grade: submission?.grade,
+          grade: submission?.marksObtained,
           isLate: submission?.isLate
         };
-      });
-      
-      return res.status(200).json({
-        success: true,
-        count: assignmentsWithStatus.length,
-        data: assignmentsWithStatus
-      });
-    }
+      }
+      return assignment;
+    });
 
     res.status(200).json({
       success: true,
-      count: assignments.length,
-      data: assignments
+      count: assignmentsWithStatus.length,
+      total,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      },
+      data: assignmentsWithStatus
     });
   } catch (error) {
     next(error);
@@ -109,12 +188,41 @@ router.get('/', protect, async (req, res, next) => {
 // @desc    Get single assignment
 // @route   GET /api/assignments/:id
 // @access  Private
-router.get('/:id', protect, async (req, res, next) => {
+router.get('/:id', protect, checkResourceOwnership('assignment'), async (req, res, next) => {
   try {
-    const assignment = await Assignment.findById(req.params.id)
-      .populate('subject', 'name color')
-      .populate('teacher', 'firstName lastName')
-      .populate('submissions.student', 'firstName lastName');
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        class: {
+          include: {
+            subject: true,
+            teacher: {
+              select: {
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        },
+        creator: {
+          select: {
+            firstName: true,
+            lastName: true
+          }
+        },
+        submissions: {
+          include: {
+            student: {
+              select: {
+                firstName: true,
+                lastName: true,
+                studentId: true
+              }
+            }
+          }
+        }
+      }
+    });
 
     if (!assignment) {
       return res.status(404).json({
@@ -123,31 +231,14 @@ router.get('/:id', protect, async (req, res, next) => {
       });
     }
 
-    // Check if user has access to this assignment
-    const hasAccess = 
-      req.user.role === 'teacher' && assignment.teacher._id.toString() === req.user.id ||
-      req.user.role === 'student' && assignment.students.includes(req.user.id) ||
-      req.user.role === 'admin';
-
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this assignment'
-      });
-    }
-
     // For students, only show their own submission
     if (req.user.role === 'student') {
-      const userSubmission = assignment.getSubmissionByStudent(req.user.id);
-      const assignmentData = assignment.toObject();
-      assignmentData.submissions = userSubmission ? [userSubmission] : [];
-      assignmentData.submissionStatus = userSubmission ? userSubmission.status : 'not-submitted';
-      assignmentData.isSubmitted = !!userSubmission;
-      
-      return res.status(200).json({
-        success: true,
-        data: assignmentData
-      });
+      const userSubmission = assignment.submissions.find(
+        sub => sub.studentId === req.user.student.id
+      );
+      assignment.submissions = userSubmission ? [userSubmission] : [];
+      assignment.submissionStatus = userSubmission?.status || 'not-submitted';
+      assignment.isSubmitted = !!userSubmission;
     }
 
     res.status(200).json({
@@ -162,35 +253,40 @@ router.get('/:id', protect, async (req, res, next) => {
 // @desc    Create new assignment
 // @route   POST /api/assignments
 // @access  Private (Teacher/Admin)
-router.post('/', protect, authorize('teacher', 'admin'), upload.array('attachments', 5), async (req, res, next) => {
+router.post('/', protect, authorize('teacher', 'admin'), upload.array('attachments', 5), validate(createAssignmentSchema), async (req, res, next) => {
   try {
     const {
+      classId,
       title,
       description,
-      subject,
-      students,
-      dueDate,
-      priority,
       type,
-      maxPoints,
+      dueDate,
+      totalMarks,
       instructions,
-      rubric,
-      settings
+      weight,
+      allowLateSubmission,
+      latePenalty
     } = req.body;
 
-    // Verify subject exists and teacher has access
-    const subjectDoc = await Subject.findById(subject);
-    if (!subjectDoc) {
+    // Verify class exists and teacher has access
+    const classDoc = await prisma.class.findUnique({
+      where: { id: classId },
+      include: {
+        subject: true
+      }
+    });
+
+    if (!classDoc) {
       return res.status(404).json({
         success: false,
-        message: 'Subject not found'
+        message: 'Class not found'
       });
     }
 
-    if (req.user.role === 'teacher' && subjectDoc.teacher.toString() !== req.user.id) {
+    if (req.user.role === 'teacher' && classDoc.teacherId !== req.user.teacher.id) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to create assignments for this subject'
+        message: 'Not authorized to create assignments for this class'
       });
     }
 
@@ -203,29 +299,35 @@ router.post('/', protect, authorize('teacher', 'admin'), upload.array('attachmen
       path: file.path
     })) : [];
 
-    const assignment = await Assignment.create({
-      title,
-      description,
-      subject,
-      teacher: req.user.id,
-      students: students || subjectDoc.students,
-      dueDate,
-      priority,
-      type,
-      maxPoints,
-      instructions,
-      attachments,
-      rubric: rubric ? JSON.parse(rubric) : [],
-      settings: settings ? JSON.parse(settings) : {}
+    const assignment = await prisma.assignment.create({
+      data: {
+        classId,
+        title,
+        description,
+        type,
+        dueDate: new Date(dueDate),
+        totalMarks: parseInt(totalMarks),
+        instructions,
+        attachments,
+        createdBy: req.user.id,
+        weight: weight ? parseFloat(weight) : 1.0,
+        allowLateSubmission: allowLateSubmission !== undefined ? allowLateSubmission : true,
+        latePenalty: latePenalty ? parseFloat(latePenalty) : 0.1
+      },
+      include: {
+        class: {
+          include: {
+            subject: true,
+            teacher: {
+              select: {
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        }
+      }
     });
-
-    await assignment.populate('subject', 'name color');
-    await assignment.populate('teacher', 'firstName lastName');
-
-    // Update subject statistics
-    subjectDoc.statistics.totalAssignments += 1;
-    subjectDoc.statistics.lastUpdated = new Date();
-    await subjectDoc.save();
 
     res.status(201).json({
       success: true,
@@ -239,9 +341,23 @@ router.post('/', protect, authorize('teacher', 'admin'), upload.array('attachmen
 // @desc    Submit assignment
 // @route   POST /api/assignments/:id/submit
 // @access  Private (Student)
-router.post('/:id/submit', protect, authorize('student'), upload.array('attachments', 5), async (req, res, next) => {
+router.post('/:id/submit', protect, authorize('student'), upload.array('attachments', 5), validate(submitAssignmentSchema), async (req, res, next) => {
   try {
-    const assignment = await Assignment.findById(req.params.id);
+    const assignmentId = req.params.id;
+    const studentId = req.user.student.id;
+
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        class: {
+          include: {
+            studentClasses: {
+              where: { studentId }
+            }
+          }
+        }
+      }
+    });
 
     if (!assignment) {
       return res.status(404).json({
@@ -250,17 +366,25 @@ router.post('/:id/submit', protect, authorize('student'), upload.array('attachme
       });
     }
 
-    // Check if student is enrolled in this assignment
-    if (!assignment.students.includes(req.user.id)) {
+    // Check if student is enrolled in this class
+    if (assignment.class.studentClasses.length === 0) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to submit this assignment'
       });
     }
 
-    // Check if already submitted and multiple attempts not allowed
-    const existingSubmission = assignment.getSubmissionByStudent(req.user.id);
-    if (existingSubmission && !assignment.settings.multipleAttempts) {
+    // Check if already submitted
+    const existingSubmission = await prisma.assignmentSubmission.findUnique({
+      where: {
+        assignmentId_studentId: {
+          assignmentId,
+          studentId
+        }
+      }
+    });
+
+    if (existingSubmission && existingSubmission.status !== 'draft') {
       return res.status(400).json({
         success: false,
         message: 'Assignment already submitted'
@@ -269,7 +393,7 @@ router.post('/:id/submit', protect, authorize('student'), upload.array('attachme
 
     // Check if late submission is allowed
     const isLate = new Date() > assignment.dueDate;
-    if (isLate && !assignment.settings.allowLateSubmissions) {
+    if (isLate && !assignment.allowLateSubmission) {
       return res.status(400).json({
         success: false,
         message: 'Late submissions are not allowed for this assignment'
@@ -285,31 +409,34 @@ router.post('/:id/submit', protect, authorize('student'), upload.array('attachme
       path: file.path
     })) : [];
 
-    const submission = {
-      student: req.user.id,
-      content: req.body.content,
+    const submissionData = {
+      assignmentId,
+      studentId,
+      submissionText: req.body.submissionText,
       attachments,
+      status: 'submitted',
       isLate,
       submittedAt: new Date()
     };
 
+    let submission;
     if (existingSubmission) {
-      // Update existing submission
-      const submissionIndex = assignment.submissions.findIndex(
-        sub => sub.student.toString() === req.user.id
-      );
-      assignment.submissions[submissionIndex] = submission;
+      // Update existing draft
+      submission = await prisma.assignmentSubmission.update({
+        where: { id: existingSubmission.id },
+        data: submissionData
+      });
     } else {
-      // Add new submission
-      assignment.submissions.push(submission);
+      // Create new submission
+      submission = await prisma.assignmentSubmission.create({
+        data: submissionData
+      });
     }
-
-    await assignment.save();
 
     res.status(200).json({
       success: true,
       message: 'Assignment submitted successfully',
-      submission
+      data: submission
     });
   } catch (error) {
     next(error);
@@ -319,9 +446,15 @@ router.post('/:id/submit', protect, authorize('student'), upload.array('attachme
 // @desc    Grade assignment submission
 // @route   PUT /api/assignments/:id/grade/:studentId
 // @access  Private (Teacher/Admin)
-router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), async (req, res, next) => {
+router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), validate(gradeAssignmentSchema), async (req, res, next) => {
   try {
-    const assignment = await Assignment.findById(req.params.id);
+    const assignmentId = req.params.id;
+    const studentId = req.params.studentId;
+    const { marksObtained, feedback } = req.body;
+
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId }
+    });
 
     if (!assignment) {
       return res.status(404).json({
@@ -331,14 +464,22 @@ router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), asyn
     }
 
     // Check if teacher owns this assignment
-    if (req.user.role === 'teacher' && assignment.teacher.toString() !== req.user.id) {
+    if (req.user.role === 'teacher' && assignment.createdBy !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to grade this assignment'
       });
     }
 
-    const submission = assignment.getSubmissionByStudent(req.params.studentId);
+    const submission = await prisma.assignmentSubmission.findUnique({
+      where: {
+        assignmentId_studentId: {
+          assignmentId,
+          studentId
+        }
+      }
+    });
+
     if (!submission) {
       return res.status(404).json({
         success: false,
@@ -346,44 +487,45 @@ router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), asyn
       });
     }
 
-    const { points, feedback } = req.body;
-
-    // Calculate percentage and letter grade
-    const percentage = (points / assignment.maxPoints) * 100;
-    let letterGrade = 'F';
-    
-    const subject = await Subject.findById(assignment.subject);
-    if (subject && subject.grading.letterGrades) {
-      for (const [letter, range] of Object.entries(subject.grading.letterGrades)) {
-        if (percentage >= range.min && percentage <= range.max) {
-          letterGrade = letter;
-          break;
-        }
-      }
-    }
-
     // Apply late penalty if applicable
-    let finalPoints = points;
-    if (submission.isLate && assignment.settings.latePenalty > 0) {
-      finalPoints = points * (1 - assignment.settings.latePenalty / 100);
+    let finalMarks = marksObtained;
+    if (submission.isLate && assignment.latePenalty > 0) {
+      finalMarks = marksObtained * (1 - assignment.latePenalty);
     }
 
-    submission.grade = {
-      points: finalPoints,
-      percentage: (finalPoints / assignment.maxPoints) * 100,
-      letterGrade,
-      feedback,
-      gradedAt: new Date(),
-      gradedBy: req.user.id
-    };
-    submission.status = 'graded';
+    // Update submission with grade
+    const gradedSubmission = await prisma.assignmentSubmission.update({
+      where: { id: submission.id },
+      data: {
+        marksObtained: finalMarks,
+        feedback,
+        gradedBy: req.user.id,
+        gradedAt: new Date(),
+        status: 'graded'
+      }
+    });
 
-    await assignment.save();
+    // Create grade record
+    await prisma.grade.create({
+      data: {
+        studentId,
+        subjectId: assignment.class.subjectId,
+        classId: assignment.classId,
+        assignmentId,
+        gradeType: assignment.type,
+        marksObtained: finalMarks,
+        totalMarks: assignment.totalMarks,
+        term: 'term1', // You might want to make this dynamic
+        academicYear: new Date().getFullYear().toString(),
+        recordedBy: req.user.id,
+        comments: feedback
+      }
+    });
 
     res.status(200).json({
       success: true,
       message: 'Assignment graded successfully',
-      grade: submission.grade
+      data: gradedSubmission
     });
   } catch (error) {
     next(error);
@@ -395,7 +537,9 @@ router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), asyn
 // @access  Private (Teacher/Admin)
 router.put('/:id', protect, authorize('teacher', 'admin'), async (req, res, next) => {
   try {
-    let assignment = await Assignment.findById(req.params.id);
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: req.params.id }
+    });
 
     if (!assignment) {
       return res.status(404).json({
@@ -405,21 +549,31 @@ router.put('/:id', protect, authorize('teacher', 'admin'), async (req, res, next
     }
 
     // Check if teacher owns this assignment
-    if (req.user.role === 'teacher' && assignment.teacher.toString() !== req.user.id) {
+    if (req.user.role === 'teacher' && assignment.createdBy !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this assignment'
       });
     }
 
-    assignment = await Assignment.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    }).populate('subject', 'name color').populate('teacher', 'firstName lastName');
+    const updatedAssignment = await prisma.assignment.update({
+      where: { id: req.params.id },
+      data: {
+        ...req.body,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined
+      },
+      include: {
+        class: {
+          include: {
+            subject: true
+          }
+        }
+      }
+    });
 
     res.status(200).json({
       success: true,
-      data: assignment
+      data: updatedAssignment
     });
   } catch (error) {
     next(error);
@@ -431,7 +585,9 @@ router.put('/:id', protect, authorize('teacher', 'admin'), async (req, res, next
 // @access  Private (Teacher/Admin)
 router.delete('/:id', protect, authorize('teacher', 'admin'), async (req, res, next) => {
   try {
-    const assignment = await Assignment.findById(req.params.id);
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: req.params.id }
+    });
 
     if (!assignment) {
       return res.status(404).json({
@@ -441,14 +597,16 @@ router.delete('/:id', protect, authorize('teacher', 'admin'), async (req, res, n
     }
 
     // Check if teacher owns this assignment
-    if (req.user.role === 'teacher' && assignment.teacher.toString() !== req.user.id) {
+    if (req.user.role === 'teacher' && assignment.createdBy !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this assignment'
       });
     }
 
-    await assignment.deleteOne();
+    await prisma.assignment.delete({
+      where: { id: req.params.id }
+    });
 
     res.status(200).json({
       success: true,

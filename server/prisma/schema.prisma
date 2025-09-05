@@ -1,0 +1,916 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  student
+  teacher
+  parent
+  admin
+  counselor
+}
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum LearningStyle {
+  visual
+  auditory
+  kinesthetic
+  reading_writing
+}
+
+enum SchoolType {
+  public
+  private
+  charter
+}
+
+enum Board {
+  CBSE
+  ICSE
+  State
+  IB
+  Other
+}
+
+enum SubjectCategory {
+  core
+  elective
+  extracurricular
+}
+
+enum ClassStatus {
+  active
+  dropped
+  completed
+}
+
+enum AssignmentType {
+  homework
+  project
+  quiz
+  exam
+  presentation
+}
+
+enum SubmissionStatus {
+  draft
+  submitted
+  graded
+  returned
+}
+
+enum GradeType {
+  assignment
+  quiz
+  exam
+  project
+  participation
+}
+
+enum Term {
+  term1
+  term2
+  annual
+}
+
+enum ActivityType {
+  study_session
+  assignment_completion
+  quiz_attempt
+  video_watched
+  resource_accessed
+}
+
+enum DifficultyLevel {
+  easy
+  medium
+  hard
+}
+
+enum RecommendationType {
+  study_plan
+  career_path
+  skill_development
+  resource
+  intervention
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum RecommendationStatus {
+  pending
+  accepted
+  rejected
+  completed
+}
+
+enum SessionType {
+  individual
+  group
+  crisis
+  career
+  academic
+}
+
+enum SessionStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+  no_show
+}
+
+enum SessionMode {
+  in_person
+  video
+  phone
+}
+
+enum PrivacyLevel {
+  confidential
+  shared_with_parents
+  shared_with_teachers
+}
+
+enum AlertType {
+  mood_decline
+  stress_spike
+  anxiety_increase
+  behavioral_change
+  academic_decline
+}
+
+enum Severity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AlertStatus {
+  active
+  acknowledged
+  resolved
+}
+
+enum MessageType {
+  text
+  image
+  file
+  voice
+  video
+}
+
+enum ConversationType {
+  direct
+  group
+  class
+  support
+}
+
+enum ParticipantRole {
+  member
+  admin
+  moderator
+}
+
+enum NotificationType {
+  academic
+  wellness
+  social
+  system
+  emergency
+  achievement
+}
+
+enum DeliveryMethod {
+  in_app
+  email
+  sms
+  push
+}
+
+enum Platform {
+  ios
+  android
+  web
+}
+
+enum ActionStatus {
+  success
+  failure
+  error
+}
+
+enum UploadType {
+  assignment
+  profile_picture
+  resource
+  message_attachment
+  system
+}
+
+enum VirusScanStatus {
+  pending
+  clean
+  infected
+  failed
+}
+
+enum SettingType {
+  string
+  number
+  boolean
+  json
+}
+
+enum RelationshipType {
+  father
+  mother
+  guardian
+  other
+}
+
+// Core Tables
+model User {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String    @unique @db.VarChar(255)
+  passwordHash     String    @map("password_hash") @db.VarChar(255)
+  role             UserRole
+  status           UserStatus @default(active)
+  emailVerified    Boolean   @default(false) @map("email_verified")
+  phone            String?   @db.VarChar(20)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  lastLogin        DateTime? @map("last_login")
+  profileCompleted Boolean   @default(false) @map("profile_completed")
+
+  // Relationships
+  student                    Student?
+  teacher                    Teacher?
+  parent                     Parent?
+  createdClasses             Class[]                     @relation("ClassCreator")
+  createdAssignments         Assignment[]                @relation("AssignmentCreator")
+  gradedSubmissions          AssignmentSubmission[]      @relation("SubmissionGrader")
+  recordedGrades             Grade[]                     @relation("GradeRecorder")
+  aiRecommendations          AIRecommendation[]
+  counselingSessions         CounselingSession[]         @relation("CounselorSessions")
+  sentMessages               Message[]                   @relation("MessageSender")
+  receivedMessages           Message[]                   @relation("MessageRecipient")
+  createdConversations       Conversation[]              @relation("ConversationCreator")
+  conversationParticipants   ConversationParticipant[]
+  notifications              Notification[]
+  pushTokens                 PushToken[]
+  refreshTokens              RefreshToken[]
+  userSessions               UserSession[]
+  auditLogs                  AuditLog[]
+  assignedRoles              UserRole_Table[]            @relation("UserRoleUser")
+  roleAssignments            UserRole_Table[]            @relation("UserRoleAssigner")
+  uploadedFiles              File[]
+  systemSettingsUpdates     SystemSetting[]
+  assignedAlerts             MentalHealthAlert[]
+
+  @@map("users")
+}
+
+model Student {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String        @unique @map("user_id") @db.Uuid
+  studentId           String        @unique @map("student_id") @db.VarChar(50)
+  firstName           String        @map("first_name") @db.VarChar(100)
+  lastName            String        @map("last_name") @db.VarChar(100)
+  dateOfBirth         DateTime?     @map("date_of_birth") @db.Date
+  gender              Gender?
+  grade               Int
+  section             String?       @db.VarChar(10)
+  schoolId            String?       @map("school_id") @db.Uuid
+  parentId            String?       @map("parent_id") @db.Uuid
+  admissionDate       DateTime?     @map("admission_date") @db.Date
+  bloodGroup          String?       @map("blood_group") @db.VarChar(5)
+  address             String?       @db.Text
+  emergencyContact    String?       @map("emergency_contact") @db.VarChar(20)
+  profilePictureUrl   String?       @map("profile_picture_url") @db.VarChar(255)
+  interests           Json?
+  learningStyle       LearningStyle? @map("learning_style")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  // Relationships
+  user                    User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school                  School?                   @relation(fields: [schoolId], references: [id])
+  parent                  Parent?                   @relation(fields: [parentId], references: [id])
+  studentClasses          StudentClass[]
+  assignmentSubmissions   AssignmentSubmission[]
+  grades                  Grade[]
+  learningAnalytics       LearningAnalytic[]
+  aiRecommendations       AIRecommendation[]
+  studentProgress         StudentProgress[]
+  mentalHealthRecords     MentalHealthRecord[]
+  counselingSessions      CounselingSession[]
+  mentalHealthAlerts      MentalHealthAlert[]
+
+  @@map("students")
+}
+
+model Teacher {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  teacherId         String   @unique @map("teacher_id") @db.VarChar(50)
+  firstName         String   @map("first_name") @db.VarChar(100)
+  lastName          String   @map("last_name") @db.VarChar(100)
+  subjects          Json     // Array of subject IDs
+  qualifications    String?  @db.Text
+  experienceYears   Int?     @map("experience_years")
+  schoolId          String?  @map("school_id") @db.Uuid
+  department        String?  @db.VarChar(100)
+  profilePictureUrl String?  @map("profile_picture_url") @db.VarChar(255)
+  bio               String?  @db.Text
+  specializations   Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school  School?  @relation(fields: [schoolId], references: [id])
+  classes Class[]
+
+  @@map("teachers")
+}
+
+model Parent {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String           @unique @map("user_id") @db.Uuid
+  firstName              String           @map("first_name") @db.VarChar(100)
+  lastName               String           @map("last_name") @db.VarChar(100)
+  relationshipToStudent  RelationshipType @map("relationship_to_student")
+  occupation             String?          @db.VarChar(100)
+  workplace              String?          @db.VarChar(200)
+  address                String?          @db.Text
+  profilePictureUrl      String?          @map("profile_picture_url") @db.VarChar(255)
+  emergencyContact       String?          @map("emergency_contact") @db.VarChar(20)
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+
+  // Relationships
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students Student[]
+
+  @@map("parents")
+}
+
+model School {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String     @db.VarChar(200)
+  code            String     @unique @db.VarChar(50)
+  type            SchoolType
+  address         String?    @db.Text
+  city            String?    @db.VarChar(100)
+  state           String?    @db.VarChar(100)
+  postalCode      String?    @map("postal_code") @db.VarChar(20)
+  phone           String?    @db.VarChar(20)
+  email           String?    @db.VarChar(255)
+  website         String?    @db.VarChar(255)
+  principalName   String?    @map("principal_name") @db.VarChar(200)
+  establishedYear Int?       @map("established_year")
+  board           Board
+  settings        Json?
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relationships
+  students Student[]
+  teachers Teacher[]
+
+  @@map("schools")
+}
+
+// Academic Tables
+model Subject {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String          @db.VarChar(100)
+  code        String          @unique @db.VarChar(20)
+  grade       Int
+  description String?         @db.Text
+  category    SubjectCategory
+  credits     Int             @default(1)
+  colorCode   String?         @map("color_code") @db.VarChar(7)
+  icon        String?         @db.VarChar(50)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relationships
+  classes           Class[]
+  grades            Grade[]
+  learningAnalytics LearningAnalytic[]
+  studentProgress   StudentProgress[]
+
+  @@map("subjects")
+}
+
+model Class {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId    String   @map("teacher_id") @db.Uuid
+  subjectId    String   @map("subject_id") @db.Uuid
+  grade        Int
+  section      String   @db.VarChar(10)
+  schoolYear   String   @map("school_year") @db.VarChar(10)
+  schedule     Json?    // Days and time slots
+  roomNumber   String?  @map("room_number") @db.VarChar(20)
+  maxStudents  Int      @default(40) @map("max_students")
+  description  String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  teacher        Teacher        @relation(fields: [teacherId], references: [id])
+  subject        Subject        @relation(fields: [subjectId], references: [id])
+  createdBy      User           @relation("ClassCreator", fields: [teacherId], references: [id])
+  studentClasses StudentClass[]
+  assignments    Assignment[]
+  grades         Grade[]
+
+  @@map("classes")
+}
+
+model StudentClass {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String      @map("student_id") @db.Uuid
+  classId        String      @map("class_id") @db.Uuid
+  enrollmentDate DateTime    @default(now()) @map("enrollment_date")
+  status         ClassStatus @default(active)
+
+  // Relationships
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+
+  @@unique([studentId, classId])
+  @@map("student_classes")
+}
+
+model Assignment {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  classId              String   @map("class_id") @db.Uuid
+  title                String   @db.VarChar(255)
+  description          String?  @db.Text
+  type                 AssignmentType
+  dueDate              DateTime @map("due_date")
+  totalMarks           Int      @map("total_marks")
+  instructions         String?  @db.Text
+  attachments          Json?
+  createdBy            String   @map("created_by") @db.Uuid
+  weight               Decimal  @default(1.00) @db.Decimal(3, 2)
+  allowLateSubmission  Boolean  @default(true) @map("allow_late_submission")
+  latePenalty          Decimal  @default(0.10) @map("late_penalty") @db.Decimal(3, 2)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  class       Class                  @relation(fields: [classId], references: [id])
+  creator     User                   @relation("AssignmentCreator", fields: [createdBy], references: [id])
+  submissions AssignmentSubmission[]
+  grades      Grade[]
+
+  @@map("assignments")
+}
+
+model AssignmentSubmission {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignmentId   String           @map("assignment_id") @db.Uuid
+  studentId      String           @map("student_id") @db.Uuid
+  submissionText String?          @map("submission_text") @db.Text
+  attachments    Json?
+  submittedAt    DateTime         @default(now()) @map("submitted_at")
+  status         SubmissionStatus @default(draft)
+  marksObtained  Int?             @map("marks_obtained")
+  feedback       String?          @db.Text
+  gradedBy       String?          @map("graded_by") @db.Uuid
+  gradedAt       DateTime?        @map("graded_at")
+  isLate         Boolean          @default(false) @map("is_late")
+
+  // Relationships
+  assignment Assignment @relation(fields: [assignmentId], references: [id])
+  student    Student    @relation(fields: [studentId], references: [id])
+  grader     User?      @relation("SubmissionGrader", fields: [gradedBy], references: [id])
+
+  @@unique([assignmentId, studentId])
+  @@map("assignment_submissions")
+}
+
+model Grade {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  subjectId     String    @map("subject_id") @db.Uuid
+  classId       String    @map("class_id") @db.Uuid
+  assignmentId  String?   @map("assignment_id") @db.Uuid
+  examId        String?   @map("exam_id") @db.Uuid
+  gradeType     GradeType @map("grade_type")
+  marksObtained Decimal   @map("marks_obtained") @db.Decimal(5, 2)
+  totalMarks    Decimal   @map("total_marks") @db.Decimal(5, 2)
+  gradeLetter   String?   @map("grade_letter") @db.VarChar(3)
+  gpaPoints     Decimal?  @map("gpa_points") @db.Decimal(3, 2)
+  term          Term
+  academicYear  String    @map("academic_year") @db.VarChar(10)
+  recordedBy    String    @map("recorded_by") @db.Uuid
+  comments      String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  student    Student     @relation(fields: [studentId], references: [id])
+  subject    Subject     @relation(fields: [subjectId], references: [id])
+  class      Class       @relation(fields: [classId], references: [id])
+  assignment Assignment? @relation(fields: [assignmentId], references: [id])
+  recorder   User        @relation("GradeRecorder", fields: [recordedBy], references: [id])
+
+  @@map("grades")
+}
+
+// AI & Learning Analytics Tables
+model LearningAnalytic {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String         @map("student_id") @db.Uuid
+  subjectId        String?        @map("subject_id") @db.Uuid
+  activityType     ActivityType   @map("activity_type")
+  durationMinutes  Int?           @map("duration_minutes")
+  performanceScore Decimal?       @map("performance_score") @db.Decimal(5, 2)
+  difficultyLevel  DifficultyLevel? @map("difficulty_level")
+  completionRate   Decimal?       @map("completion_rate") @db.Decimal(5, 2)
+  engagementScore  Decimal?       @map("engagement_score") @db.Decimal(5, 2)
+  timestamp        DateTime       @default(now())
+  metadata         Json?
+
+  // Relationships
+  student Student  @relation(fields: [studentId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id])
+
+  @@map("learning_analytics")
+}
+
+model AIRecommendation {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String               @map("student_id") @db.Uuid
+  type                RecommendationType
+  title               String               @db.VarChar(255)
+  description         String?              @db.Text
+  priority            Priority
+  confidenceScore     Decimal?             @map("confidence_score") @db.Decimal(3, 2)
+  reasoning           String?              @db.Text
+  recommendedActions  Json?                @map("recommended_actions")
+  status              RecommendationStatus @default(pending)
+  createdByAiModel    String?              @map("created_by_ai_model") @db.VarChar(100)
+  expiresAt           DateTime?            @map("expires_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  // Relationships
+  student Student @relation(fields: [studentId], references: [id])
+  creator User    @relation(fields: [studentId], references: [id])
+
+  @@map("ai_recommendations")
+}
+
+model StudentProgress {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId            String    @map("student_id") @db.Uuid
+  subjectId            String?   @map("subject_id") @db.Uuid
+  skillName            String    @map("skill_name") @db.VarChar(100)
+  currentLevel         Int       @map("current_level")
+  targetLevel          Int?      @map("target_level")
+  progressPercentage   Decimal?  @map("progress_percentage") @db.Decimal(5, 2)
+  lastAssessmentDate   DateTime? @map("last_assessment_date")
+  improvementRate      Decimal?  @map("improvement_rate") @db.Decimal(5, 2)
+  strengths            Json?
+  weaknesses           Json?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  student Student  @relation(fields: [studentId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId, skillName])
+  @@map("student_progress")
+}
+
+// Mental Health & Counseling Tables
+model MentalHealthRecord {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId            String   @map("student_id") @db.Uuid
+  date                 DateTime @db.Date
+  moodRating           Int?     @map("mood_rating")
+  stressLevel          Int?     @map("stress_level")
+  sleepHours           Decimal? @map("sleep_hours") @db.Decimal(3, 1)
+  energyLevel          Int?     @map("energy_level")
+  anxietyLevel         Int?     @map("anxiety_level")
+  notes                String?  @db.Text
+  triggers             Json?
+  copingStrategiesUsed Json?    @map("coping_strategies_used")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@map("mental_health_records")
+}
+
+model CounselingSession {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId          String        @map("student_id") @db.Uuid
+  counselorId        String        @map("counselor_id") @db.Uuid
+  sessionType        SessionType   @map("session_type")
+  scheduledAt        DateTime      @map("scheduled_at")
+  durationMinutes    Int           @default(60) @map("duration_minutes")
+  status             SessionStatus
+  mode               SessionMode
+  sessionNotes       String?       @map("session_notes") @db.Text
+  followUpRequired   Boolean       @default(false) @map("follow_up_required")
+  nextSessionDate    DateTime?     @map("next_session_date")
+  privacyLevel       PrivacyLevel  @map("privacy_level")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  // Relationships
+  student   Student @relation(fields: [studentId], references: [id])
+  counselor User    @relation("CounselorSessions", fields: [counselorId], references: [id])
+
+  @@map("counseling_sessions")
+}
+
+model MentalHealthAlert {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId          String      @map("student_id") @db.Uuid
+  alertType          AlertType   @map("alert_type")
+  severity           Severity
+  description        String?     @db.Text
+  triggeredBy        Json?       @map("triggered_by")
+  aiAnalysis         String?     @map("ai_analysis") @db.Text
+  recommendedActions Json?       @map("recommended_actions")
+  status             AlertStatus @default(active)
+  assignedTo         String?     @map("assigned_to") @db.Uuid
+  createdAt          DateTime    @default(now()) @map("created_at")
+  resolvedAt         DateTime?   @map("resolved_at")
+
+  // Relationships
+  student      Student @relation(fields: [studentId], references: [id])
+  assignedUser User?   @relation(fields: [assignedTo], references: [id])
+
+  @@map("mental_health_alerts")
+}
+
+// Communication Tables
+model Message {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId         String      @map("sender_id") @db.Uuid
+  recipientId      String?     @map("recipient_id") @db.Uuid
+  conversationId   String      @map("conversation_id") @db.Uuid
+  messageType      MessageType @map("message_type")
+  content          String?     @db.Text
+  attachments      Json?
+  isRead           Boolean     @default(false) @map("is_read")
+  readAt           DateTime?   @map("read_at")
+  isAiGenerated    Boolean     @default(false) @map("is_ai_generated")
+  priority         Priority    @default(medium)
+  replyToMessageId String?     @map("reply_to_message_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  // Relationships
+  sender       User          @relation("MessageSender", fields: [senderId], references: [id])
+  recipient    User?         @relation("MessageRecipient", fields: [recipientId], references: [id])
+  conversation Conversation  @relation(fields: [conversationId], references: [id])
+  replyTo      Message?      @relation("MessageReply", fields: [replyToMessageId], references: [id])
+  replies      Message[]     @relation("MessageReply")
+
+  @@map("messages")
+}
+
+model Conversation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type             ConversationType
+  title            String?  @db.VarChar(255)
+  description      String?  @db.Text
+  createdBy        String   @map("created_by") @db.Uuid
+  isArchived       Boolean  @default(false) @map("is_archived")
+  lastMessageAt    DateTime? @map("last_message_at")
+  participantCount Int      @default(0) @map("participant_count")
+  settings         Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  creator      User                      @relation("ConversationCreator", fields: [createdBy], references: [id])
+  messages     Message[]
+  participants ConversationParticipant[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId     String          @map("conversation_id") @db.Uuid
+  userId             String          @map("user_id") @db.Uuid
+  role               ParticipantRole @default(member)
+  joinedAt           DateTime        @default(now()) @map("joined_at")
+  leftAt             DateTime?       @map("left_at")
+  isMuted            Boolean         @default(false) @map("is_muted")
+  lastReadMessageId  String?         @map("last_read_message_id") @db.Uuid
+
+  // Relationships
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+// Notification & Alert Tables
+model Notification {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  type           NotificationType
+  title          String           @db.VarChar(255)
+  message        String           @db.Text
+  data           Json?
+  isRead         Boolean          @default(false) @map("is_read")
+  isSent         Boolean          @default(false) @map("is_sent")
+  priority       Priority         @default(medium)
+  deliveryMethod DeliveryMethod   @default(in_app) @map("delivery_method")
+  scheduledFor   DateTime?        @map("scheduled_for")
+  expiresAt      DateTime?        @map("expires_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  readAt         DateTime?        @map("read_at")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model PushToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  token      String    @db.VarChar(255)
+  platform   Platform
+  deviceInfo Json?     @map("device_info")
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsed   DateTime  @default(now()) @map("last_used")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, token])
+  @@map("push_tokens")
+}
+
+// Authentication & Security Tables
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  isRevoked Boolean   @default(false) @map("is_revoked")
+  createdAt DateTime  @default(now()) @map("created_at")
+  lastUsed  DateTime? @map("last_used")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("refresh_tokens")
+}
+
+model UserSession {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  sessionToken String    @unique @map("session_token") @db.VarChar(255)
+  ipAddress    String?   @map("ip_address") @db.Inet
+  userAgent    String?   @map("user_agent") @db.Text
+  deviceInfo   Json?     @map("device_info")
+  expiresAt    DateTime  @map("expires_at")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastActivity DateTime  @default(now()) @map("last_activity")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_sessions")
+}
+
+model AuditLog {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String?      @map("user_id") @db.Uuid
+  action       String       @db.VarChar(100)
+  resourceType String?      @map("resource_type") @db.VarChar(100)
+  resourceId   String?      @map("resource_id") @db.Uuid
+  oldValues    Json?        @map("old_values")
+  newValues    Json?        @map("new_values")
+  ipAddress    String?      @map("ip_address") @db.Inet
+  userAgent    String?      @map("user_agent") @db.Text
+  timestamp    DateTime     @default(now())
+  status       ActionStatus
+
+  // Relationships
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// Permissions & RBAC Tables
+model Role {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @unique @db.VarChar(100)
+  description  String?  @db.Text
+  permissions  Json
+  isSystemRole Boolean  @default(false) @map("is_system_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  userRoles UserRole_Table[]
+
+  @@map("roles")
+}
+
+model UserRole_Table {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  roleId     String    @map("role_id") @db.Uuid
+  assignedBy String    @map("assigned_by") @db.Uuid
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+  expiresAt  DateTime? @map("expires_at")
+  isActive   Boolean   @default(true) @map("is_active")
+
+  // Relationships
+  user     User @relation("UserRoleUser", fields: [userId], references: [id])
+  role     Role @relation(fields: [roleId], references: [id])
+  assigner User @relation("UserRoleAssigner", fields: [assignedBy], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// File Management Tables
+model File {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  filename         String           @db.VarChar(255)
+  originalFilename String           @map("original_filename") @db.VarChar(255)
+  mimeType         String           @map("mime_type") @db.VarChar(100)
+  fileSize         BigInt           @map("file_size")
+  filePath         String           @map("file_path") @db.VarChar(500)
+  uploadType       UploadType       @map("upload_type")
+  uploadedBy       String           @map("uploaded_by") @db.Uuid
+  isPublic         Boolean          @default(false) @map("is_public")
+  metadata         Json?
+  virusScanStatus  VirusScanStatus  @default(pending) @map("virus_scan_status")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  expiresAt        DateTime?        @map("expires_at")
+
+  // Relationships
+  uploader User @relation(fields: [uploadedBy], references: [id])
+
+  @@map("files")
+}
+
+// Configuration Tables
+model SystemSetting {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String      @unique @db.VarChar(100)
+  value       String      @db.Text
+  type        SettingType
+  description String?     @db.Text
+  isPublic    Boolean     @default(false) @map("is_public")
+  updatedBy   String?     @map("updated_by") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relationships
+  updater User? @relation(fields: [updatedBy], references: [id])
+
+  @@map("system_settings")
+}

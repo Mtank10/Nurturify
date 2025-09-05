@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import prisma from '../config/database.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -23,18 +23,36 @@ export const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Get user from token
-      req.user = await User.findById(decoded.id).select('-password');
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        include: {
+          student: true,
+          teacher: true,
+          parent: true,
+        }
+      });
 
-      if (!req.user) {
+      if (!user) {
         return res.status(401).json({
           success: false,
           message: 'User not found'
         });
       }
 
-      // Update last active
-      req.user.updateLastActive();
+      if (user.status !== 'active') {
+        return res.status(401).json({
+          success: false,
+          message: 'Account is not active'
+        });
+      }
 
+      // Update last login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() }
+      });
+
+      req.user = user;
       next();
     } catch (error) {
       return res.status(401).json({
@@ -73,9 +91,17 @@ export const optionalAuth = async (req, res, next) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = await User.findById(decoded.id).select('-password');
-        if (req.user) {
-          req.user.updateLastActive();
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.id },
+          include: {
+            student: true,
+            teacher: true,
+            parent: true,
+          }
+        });
+        
+        if (user && user.status === 'active') {
+          req.user = user;
         }
       } catch (error) {
         // Token invalid, but continue without user
@@ -90,4 +116,79 @@ export const optionalAuth = async (req, res, next) => {
       message: 'Server error'
     });
   }
+};
+
+// Check if user owns resource or has permission
+export const checkResourceOwnership = (resourceType) => {
+  return async (req, res, next) => {
+    try {
+      const resourceId = req.params.id;
+      let hasAccess = false;
+
+      switch (resourceType) {
+        case 'student':
+          if (req.user.role === 'student' && req.user.student?.id === resourceId) {
+            hasAccess = true;
+          } else if (req.user.role === 'parent') {
+            const student = await prisma.student.findUnique({
+              where: { id: resourceId }
+            });
+            hasAccess = student?.parentId === req.user.parent?.id;
+          } else if (['teacher', 'admin', 'counselor'].includes(req.user.role)) {
+            hasAccess = true;
+          }
+          break;
+
+        case 'assignment':
+          const assignment = await prisma.assignment.findUnique({
+            where: { id: resourceId },
+            include: {
+              class: {
+                include: {
+                  studentClasses: true
+                }
+              }
+            }
+          });
+
+          if (req.user.role === 'teacher' && assignment?.createdBy === req.user.id) {
+            hasAccess = true;
+          } else if (req.user.role === 'student') {
+            hasAccess = assignment?.class.studentClasses.some(
+              sc => sc.studentId === req.user.student?.id
+            );
+          } else if (['admin'].includes(req.user.role)) {
+            hasAccess = true;
+          }
+          break;
+
+        case 'mental_health':
+          if (req.user.role === 'student' && req.user.student?.id === req.params.studentId) {
+            hasAccess = true;
+          } else if (['counselor', 'admin'].includes(req.user.role)) {
+            hasAccess = true;
+          } else if (req.user.role === 'parent') {
+            const student = await prisma.student.findUnique({
+              where: { id: req.params.studentId }
+            });
+            hasAccess = student?.parentId === req.user.parent?.id;
+          }
+          break;
+
+        default:
+          hasAccess = ['admin'].includes(req.user.role);
+      }
+
+      if (!hasAccess) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to access this resource'
+        });
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 };
