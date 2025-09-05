@@ -7,27 +7,18 @@ import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
-import connectDB from './config/database.js';
+import prisma from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 
 // Route imports
 import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
+import studentsRoutes from './routes/students.js';
 import assignmentRoutes from './routes/assignments.js';
-import subjectRoutes from './routes/subjects.js';
 import wellnessRoutes from './routes/wellness.js';
-import careerRoutes from './routes/career.js';
-import communicationRoutes from './routes/communication.js';
-import resourceRoutes from './routes/resources.js';
-import analyticsRoutes from './routes/analytics.js';
-import gamificationRoutes from './routes/gamification.js';
 import aiRoutes from './routes/ai.js';
 
 // Load environment variables
 dotenv.config();
-
-// Connect to database
-connectDB();
 
 const app = express();
 const server = createServer(app);
@@ -91,24 +82,32 @@ app.set('io', io);
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/students', studentsRoutes);
 app.use('/api/assignments', assignmentRoutes);
-app.use('/api/subjects', subjectRoutes);
 app.use('/api/wellness', wellnessRoutes);
-app.use('/api/career', careerRoutes);
-app.use('/api/communication', communicationRoutes);
-app.use('/api/resources', resourceRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/gamification', gamificationRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    await prisma.$queryRaw`SELECT 1`;
+    
+    res.status(200).json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'Connected'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'Disconnected',
+      error: error.message
+    });
+  }
 });
 
 // Error handling middleware
@@ -126,4 +125,21 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  await prisma.$disconnect();
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully');
+  await prisma.$disconnect();
+  server.close(() => {
+    console.log('Process terminated');
+  });
 });
