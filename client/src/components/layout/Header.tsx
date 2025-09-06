@@ -94,20 +94,20 @@ export const Header: React.FC = () => {
   );
 };
 
-{/* Old code for reference
-          <Button variant="ghost" size="sm" icon={MessageSquare}>
-            <span className="sr-only">Messages</span>
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-error-500 rounded-full"></span>
-          </Button>
+// {/* Old code for reference
+//           <Button variant="ghost" size="sm" icon={MessageSquare}>
+//             <span className="sr-only">Messages</span>
+//             <span className="absolute -top-1 -right-1 w-2 h-2 bg-error-500 rounded-full"></span>
+//           </Button>
           
-          <Button variant="ghost" size="sm" icon={Bell}>
-            <span className="sr-only">Notifications</span>
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
-          </Button>
+//           <Button variant="ghost" size="sm" icon={Bell}>
+//             <span className="sr-only">Notifications</span>
+//             <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+//           </Button>
 
-          <div className="h-6 w-px bg-gray-300" />
+//           <div className="h-6 w-px bg-gray-300" />
 
-          <Button variant="ghost" size="sm" icon={User}>
-            Profile
-          </Button>
-}
+//           <Button variant="ghost" size="sm" icon={User}>
+//             Profile
+//           </Button>
+// }
