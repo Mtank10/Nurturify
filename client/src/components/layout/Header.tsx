@@ -110,3 +110,4 @@ export const Header: React.FC = () => {
           <Button variant="ghost" size="sm" icon={User}>
             Profile
           </Button>
+}
