@@ -83,6 +83,50 @@ export const mentalHealthRecordSchema = z.object({
   copingStrategiesUsed: z.array(z.string()).optional(),
 });
 
+// Teacher validation schemas
+export const createTeacherSchema = z.object({
+  teacherId: z.string().min(1, 'Teacher ID is required').max(50),
+  firstName: z.string().min(1, 'First name is required').max(100),
+  lastName: z.string().min(1, 'Last name is required').max(100),
+  subjects: z.array(z.string().uuid()),
+  qualifications: z.string().optional(),
+  experienceYears: z.number().int().min(0).optional(),
+  schoolId: z.string().uuid().optional(),
+  department: z.string().max(100).optional(),
+  bio: z.string().optional(),
+  specializations: z.array(z.string()).optional(),
+});
+
+// Class validation schemas
+export const createClassSchema = z.object({
+  teacherId: z.string().uuid().optional(),
+  subjectId: z.string().uuid('Invalid subject ID'),
+  grade: z.number().int().min(1).max(12),
+  section: z.string().max(10),
+  schoolYear: z.string().max(10),
+  schedule: z.array(z.object({
+    day: z.string(),
+    startTime: z.string(),
+    endTime: z.string(),
+    room: z.string().optional()
+  })).optional(),
+  roomNumber: z.string().max(20).optional(),
+  maxStudents: z.number().int().min(1).optional(),
+  description: z.string().optional(),
+});
+
+// Subject validation schemas
+export const createSubjectSchema = z.object({
+  name: z.string().min(1, 'Subject name is required').max(100),
+  code: z.string().min(1, 'Subject code is required').max(20),
+  grade: z.number().int().min(1).max(12),
+  description: z.string().optional(),
+  category: z.enum(['core', 'elective', 'extracurricular']),
+  credits: z.number().int().min(1).optional(),
+  colorCode: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/).optional(),
+  icon: z.string().max(50).optional(),
+});
+
 // Message validation schemas
 export const sendMessageSchema = z.object({
   conversationId: z.string().uuid('Invalid conversation ID'),

@@ -3,49 +3,11 @@ import { Clock, CheckCircle, AlertTriangle, BookOpen, Heart } from 'lucide-react
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 
-interface Activity {
-  id: string;
-  type: 'assignment' | 'wellness' | 'achievement' | 'reminder';
-  title: string;
-  description: string;
-  timestamp: string;
-  status?: 'completed' | 'pending' | 'overdue';
+interface ActivityFeedProps {
+  recentGrades?: any[];
 }
 
-const activities: Activity[] = [
-  {
-    id: '1',
-    type: 'assignment',
-    title: 'Math Assignment Submitted',
-    description: 'Algebra worksheet completed and submitted',
-    timestamp: '2 minutes ago',
-    status: 'completed',
-  },
-  {
-    id: '2',
-    type: 'wellness',
-    title: 'Daily Mood Check-in',
-    description: 'Remember to log your mood for today',
-    timestamp: '1 hour ago',
-    status: 'pending',
-  },
-  {
-    id: '3',
-    type: 'achievement',
-    title: 'Study Streak Achievement',
-    description: '7-day study streak unlocked!',
-    timestamp: '3 hours ago',
-  },
-  {
-    id: '4',
-    type: 'reminder',
-    title: 'Science Class Tomorrow',
-    description: 'Chemistry lab at 10:00 AM',
-    timestamp: '1 day ago',
-  },
-];
-
-export const ActivityFeed: React.FC = () => {
+export const ActivityFeed: React.FC<ActivityFeedProps> = ({ recentGrades = [] }) => {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'assignment':
@@ -76,6 +38,34 @@ export const ActivityFeed: React.FC = () => {
     }
   };
 
+  // Convert recent grades to activities
+  const activities = [
+    ...recentGrades.map((grade: any) => ({
+      id: grade.id,
+      type: 'assignment',
+      title: `${grade.subject?.name} Grade Received`,
+      description: grade.assignment?.title || `${grade.gradeType} assessment`,
+      timestamp: new Date(grade.createdAt).toLocaleDateString(),
+      status: 'completed',
+      grade: Math.round((parseFloat(grade.marksObtained) / parseFloat(grade.totalMarks)) * 100)
+    })),
+    {
+      id: 'wellness-reminder',
+      type: 'wellness',
+      title: 'Daily Mood Check-in',
+      description: 'Remember to log your mood for today',
+      timestamp: 'Today',
+      status: 'pending',
+    },
+    {
+      id: 'achievement',
+      type: 'achievement',
+      title: 'Study Streak Achievement',
+      description: '7-day study streak unlocked!',
+      timestamp: '3 days ago',
+    },
+  ];
+
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
@@ -100,12 +90,19 @@ export const ActivityFeed: React.FC = () => {
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {activity.title}
                   </p>
-                  {activity.status && (
+                  {activity.status ? (
                     <Badge
                       variant={activity.status === 'completed' ? 'success' : activity.status === 'overdue' ? 'error' : 'warning'}
                       size="sm"
                     >
                       {activity.status}
+                    </Badge>
+                  ) : activity.grade && (
+                    <Badge
+                      variant={activity.grade >= 80 ? 'success' : activity.grade >= 60 ? 'warning' : 'error'}
+                      size="sm"
+                    >
+                      {activity.grade}%
                     </Badge>
                   )}
                 </div>
@@ -115,6 +112,12 @@ export const ActivityFeed: React.FC = () => {
             </div>
           );
         })}
+        {activities.length === 0 && (
+          <div className="text-center py-8">
+            <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">No recent activities</p>
+          </div>
+        )}
       </div>
     </Card>
   );

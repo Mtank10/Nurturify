@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import { LoginForm } from './components/auth/LoginForm';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './pages/Dashboard';
@@ -14,9 +16,25 @@ import { AIAssistant } from './components/chat/AIAssistant';
 import { Button } from './components/ui/Button';
 import { Bot } from 'lucide-react';
 
-function App() {
+const AppContent: React.FC = () => {
+  const { user, loading } = useAuth();
   const [activeModule, setActiveModule] = useState('dashboard');
   const [isAIOpen, setIsAIOpen] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm />;
+  }
 
   const renderContent = () => {
     switch (activeModule) {
@@ -78,6 +96,14 @@ function App() {
       {/* AI Assistant Modal */}
       <AIAssistant isOpen={isAIOpen} onClose={() => setIsAIOpen(false)} />
     </div>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
