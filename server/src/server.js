@@ -15,7 +15,7 @@ import authRoutes from './routes/auth.js';
 import studentsRoutes from './routes/students.js';
 import assignmentRoutes from './routes/assignments.js';
 import wellnessRoutes from './routes/wellness.js';
-import aiRoutes from './routes/ai.js';
+// import aiRoutes from './routes/ai.js';
 import teachersRoutes from './routes/teachers.js';
 import classesRoutes from './routes/classes.js';
 import subjectsRoutes from './routes/subjects.js';
@@ -31,7 +31,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
     methods: ["GET", "POST"]
   }
 });
@@ -50,7 +50,7 @@ app.use(limiter);
 
 // CORS
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
   credentials: true
 }));
 
@@ -92,7 +92,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentsRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/wellness', wellnessRoutes);
-app.use('/api/ai', aiRoutes);
+// app.use('/api/ai', aiRoutes);
 app.use('/api/teachers', teachersRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/subjects', subjectsRoutes);
