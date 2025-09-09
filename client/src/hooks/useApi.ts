@@ -109,3 +109,20 @@ export function useStudentAnalytics(studentId: string, params?: any) {
     immediate: !!studentId,
   });
 }
+
+// Gamification hooks
+export function useGamificationProfile() {
+  return useApi(() => apiService.getGamificationProfile());
+}
+
+export function useAchievements() {
+  return useApi(() => apiService.getAchievements());
+}
+
+export function useLeaderboard(params?: any) {
+  return useApi(() => apiService.getLeaderboard(params));
+}
+
+export function useChallenges() {
+  return useApi(() => apiService.getChallenges());
+}

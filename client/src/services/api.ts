@@ -259,6 +259,30 @@ class ApiService {
     return this.request<any>(`/analytics/class/${classId}`);
   }
 
+  // Gamification
+  async getGamificationProfile() {
+    return this.request<any>('/gamification/profile');
+  }
+
+  async getAchievements() {
+    return this.request<any>('/gamification/achievements');
+  }
+
+  async getLeaderboard(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request<any>(`/gamification/leaderboard${queryString}`);
+  }
+
+  async getChallenges() {
+    return this.request<any>('/gamification/challenges');
+  }
+
+  async checkAchievements() {
+    return this.request<any>('/gamification/check-achievements', {
+      method: 'POST'
+    });
+  }
+
   // AI
   async chatWithAI(message: string, context?: any) {
     return this.request<any>('/ai/chat', {

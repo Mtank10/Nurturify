@@ -1,14 +1,16 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { useNotifications } from '../../hooks/useApi';
+import { useNotifications, useGamificationProfile } from '../../hooks/useApi';
 import { Search, Bell, MessageSquare, User } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const { data: notificationsData } = useNotifications();
+  const { data: gamificationData } = useGamificationProfile();
   
   const unreadCount = notificationsData?.unreadCount || 0;
+  const playerLevel = gamificationData?.level || 1;
 
   const handleLogout = async () => {
     try {
@@ -78,6 +80,11 @@ export const Header: React.FC = () => {
                     Preferences
                   </button>
                   <hr className="my-2" />
+              {user?.role === 'student' && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-warning-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  {playerLevel}
+                </span>
+              )}
                   <button 
                     onClick={handleLogout}
                     className="w-full text-left px-3 py-2 text-sm text-error-600 hover:bg-error-50 rounded-lg"
@@ -85,6 +92,11 @@ export const Header: React.FC = () => {
                     Sign Out
                   </button>
                 </div>
+                {user?.role === 'student' && gamificationData && (
+                  <p className="text-xs text-primary-600 mt-1">
+                    Level {gamificationData.level} • {gamificationData.totalPoints} points
+                  </p>
+                )}
               </div>
             </div>
           </div>

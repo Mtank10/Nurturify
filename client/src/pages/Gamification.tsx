@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useGamificationProfile, useAchievements, useLeaderboard, useChallenges } from '../hooks/useApi';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -18,132 +19,26 @@ import {
   TrendingUp
 } from 'lucide-react';
 
-interface Achievement {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-  unlocked: boolean;
-  unlockedDate?: string;
-  progress?: number;
-  maxProgress?: number;
-}
-
-interface Challenge {
-  id: string;
-  title: string;
-  description: string;
-  type: 'daily' | 'weekly' | 'monthly';
-  progress: number;
-  maxProgress: number;
-  reward: string;
-  expiresIn: string;
-}
-
 export const Gamification: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'achievements' | 'challenges' | 'leaderboard' | 'rewards'>('achievements');
+  
+  const { data: profileData, loading: profileLoading } = useGamificationProfile();
+  const { data: achievementsData, loading: achievementsLoading } = useAchievements();
+  const { data: leaderboardData, loading: leaderboardLoading } = useLeaderboard();
+  const { data: challengesData, loading: challengesLoading } = useChallenges();
 
-  const playerStats = {
-    level: 15,
-    xp: 2450,
-    xpToNext: 3000,
-    totalPoints: 15680,
-    rank: 23,
-    streakDays: 12,
+  const playerStats = profileData || {
+    level: 1,
+    xp: 0,
+    xpToNext: 1000,
+    totalPoints: 0,
+    rank: 0,
+    streakDays: 0,
   };
 
-  const achievements: Achievement[] = [
-    {
-      id: '1',
-      title: 'First Steps',
-      description: 'Complete your first assignment',
-      icon: '🎯',
-      rarity: 'common',
-      unlocked: true,
-      unlockedDate: '2 weeks ago',
-    },
-    {
-      id: '2',
-      title: 'Study Warrior',
-      description: 'Study for 7 consecutive days',
-      icon: '⚔️',
-      rarity: 'rare',
-      unlocked: true,
-      unlockedDate: '1 week ago',
-    },
-    {
-      id: '3',
-      title: 'Perfect Score',
-      description: 'Get 100% on any quiz',
-      icon: '💯',
-      rarity: 'epic',
-      unlocked: true,
-      unlockedDate: '3 days ago',
-    },
-    {
-      id: '4',
-      title: 'Knowledge Master',
-      description: 'Complete 50 assignments',
-      icon: '🧠',
-      rarity: 'legendary',
-      unlocked: false,
-      progress: 32,
-      maxProgress: 50,
-    },
-    {
-      id: '5',
-      title: 'Wellness Champion',
-      description: 'Maintain high wellness score for 30 days',
-      icon: '💚',
-      rarity: 'epic',
-      unlocked: false,
-      progress: 18,
-      maxProgress: 30,
-    },
-  ];
-
-  const challenges: Challenge[] = [
-    {
-      id: '1',
-      title: 'Daily Grind',
-      description: 'Complete 3 assignments today',
-      type: 'daily',
-      progress: 2,
-      maxProgress: 3,
-      reward: '50 XP',
-      expiresIn: '6h 23m',
-    },
-    {
-      id: '2',
-      title: 'Study Marathon',
-      description: 'Study for 20 hours this week',
-      type: 'weekly',
-      progress: 14,
-      maxProgress: 20,
-      reward: '200 XP + Badge',
-      expiresIn: '2d 14h',
-    },
-    {
-      id: '3',
-      title: 'Subject Master',
-      description: 'Get A grade in all subjects this month',
-      type: 'monthly',
-      progress: 3,
-      maxProgress: 5,
-      reward: '500 XP + Title',
-      expiresIn: '12d 8h',
-    },
-  ];
-
-  const leaderboard = [
-    { rank: 1, name: 'Alex Chen', points: 18950, level: 18, badge: '👑' },
-    { rank: 2, name: 'Sarah Kim', points: 17230, level: 17, badge: '🥈' },
-    { rank: 3, name: 'Mike Rodriguez', points: 16890, level: 16, badge: '🥉' },
-    { rank: 4, name: 'Emma Wilson', points: 16120, level: 16, badge: '🏆' },
-    { rank: 5, name: 'David Park', points: 15950, level: 15, badge: '⭐' },
-    { rank: 23, name: 'You', points: 15680, level: 15, badge: '🎯', isCurrentUser: true },
-  ];
+  const achievements = achievementsData || [];
+  const challenges = challengesData || [];
+  const leaderboard = leaderboardData || [];
 
   const rewards = [
     { id: '1', title: 'Custom Avatar', cost: 500, type: 'cosmetic', available: true },
@@ -193,8 +88,11 @@ export const Gamification: React.FC = () => {
       <Card className="bg-gradient-to-r from-primary-50 to-accent-50 border-primary-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
+            <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white font-bold text-xl relative">
               {playerStats.level}
+              {profileLoading && (
+                <div className="absolute inset-0 bg-gray-200 rounded-full animate-pulse"></div>
+              )}
             </div>
             <div>
               <h3 className="text-xl font-bold text-gray-900">Level {playerStats.level}</h3>
@@ -261,6 +159,16 @@ export const Gamification: React.FC = () => {
 
       {/* Tab Content */}
       {activeTab === 'achievements' && (
+        <>
+          {achievementsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <div className="h-32 bg-gray-200 rounded"></div>
+                </Card>
+              ))}
+            </div>
+          ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {achievements.map((achievement) => (
             <Card key={achievement.id} className={`relative overflow-hidden ${
@@ -297,19 +205,19 @@ export const Gamification: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Award className="w-4 h-4 text-success-500" />
                       <span className="text-sm text-success-600 font-medium">
-                        Unlocked {achievement.unlockedDate}
+                        Unlocked {achievement.unlockedDate ? new Date(achievement.unlockedDate).toLocaleDateString() : 'Recently'}
                       </span>
                     </div>
-                  ) : achievement.progress !== undefined ? (
+                  ) : achievement.progress ? (
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm text-gray-600">Progress</span>
                         <span className="text-sm font-medium text-gray-900">
-                          {achievement.progress} / {achievement.maxProgress}
+                          {achievement.progress.current} / {achievement.progress.target}
                         </span>
                       </div>
                       <ProgressBar 
-                        progress={(achievement.progress / achievement.maxProgress!) * 100} 
+                        progress={(achievement.progress.current / achievement.progress.target) * 100} 
                         color="primary"
                         size="sm"
                       />
@@ -325,9 +233,23 @@ export const Gamification: React.FC = () => {
             </Card>
           ))}
         </div>
+          )}
+        </>
+          )}
+        </>
       )}
 
       {activeTab === 'challenges' && (
+        <>
+          {challengesLoading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <div className="h-24 bg-gray-200 rounded"></div>
+                </Card>
+              ))}
+            </div>
+          ) : (
         <div className="space-y-4">
           {challenges.map((challenge) => {
             const typeColor = getChallengeTypeColor(challenge.type);
@@ -389,6 +311,19 @@ export const Gamification: React.FC = () => {
       )}
 
       {activeTab === 'leaderboard' && (
+        <>
+          {leaderboardLoading ? (
+            <Card>
+              <div className="space-y-4">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-gray-100 rounded-xl animate-pulse">
+                    <div className="h-4 bg-gray-300 rounded w-1/3"></div>
+                    <div className="h-4 bg-gray-300 rounded w-1/4"></div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : (
         <Card>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Class Leaderboard</h2>
@@ -431,6 +366,8 @@ export const Gamification: React.FC = () => {
             ))}
           </div>
         </Card>
+          )}
+        </>
       )}
 
       {activeTab === 'rewards' && (

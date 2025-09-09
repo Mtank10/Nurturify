@@ -1,9 +1,7 @@
 import express from 'express';
-import OpenAI from 'openai';
 import { protect } from '../middleware/auth.js';
-import User from '../models/User.js';
-import Assignment from '../models/Assignment.js';
-import WellnessEntry from '../models/WellnessEntry.js';
+import prisma from '../config/database.js';
+import OpenAI from 'openai';
 
 const router = express.Router();
 
@@ -27,24 +25,49 @@ router.post('/chat', protect, async (req, res, next) => {
     }
 
     // Get user context for personalized responses
-    const user = await User.findById(req.user.id);
-    const recentAssignments = await Assignment.find({
-      students: req.user.id,
-      dueDate: { $gte: new Date() }
-    }).limit(5).populate('subject', 'name');
+    const user = req.user;
+    const recentAssignments = await prisma.assignment.findMany({
+      where: {
+        class: {
+          studentClasses: {
+            some: {
+              studentId: req.user.student?.id,
+              status: 'active'
+            }
+          }
+        },
+        dueDate: { gte: new Date() }
+      },
+      take: 5,
+      include: {
+        class: {
+          include: {
+            subject: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
+    });
 
-    const recentWellness = await WellnessEntry.findOne({
-      user: req.user.id
-    }).sort({ date: -1 });
+    const recentWellness = await prisma.mentalHealthRecord.findFirst({
+      where: { studentId: req.user.student?.id },
+      orderBy: { date: 'desc' }
+    });
 
     // Build context for AI
-    const systemPrompt = `You are an AI study assistant for ${user.firstName}, a ${user.grade} student. 
+    const studentName = user.student?.firstName || user.teacher?.firstName || 'User';
+    const grade = user.student?.grade || 'N/A';
+    
+    const systemPrompt = `You are an AI study assistant for ${studentName}, a grade ${grade} student. 
     
     Current context:
-    - Student name: ${user.firstName} ${user.lastName}
-    - Grade: ${user.grade}
-    - Recent assignments: ${recentAssignments.map(a => `${a.title} (${a.subject.name}) - Due: ${a.dueDate.toDateString()}`).join(', ')}
-    - Recent wellness score: ${recentWellness?.wellnessScore || 'Not available'}
+    - Student name: ${studentName} ${user.student?.lastName || user.teacher?.lastName || ''}
+    - Grade: ${grade}
+    - Recent assignments: ${recentAssignments.map(a => `${a.title} (${a.class.subject.name}) - Due: ${a.dueDate.toDateString()}`).join(', ')}
+    - Recent wellness: ${recentWellness ? 'Available' : 'Not available'}
     
     You should:
     1. Be encouraging and supportive
@@ -56,7 +79,7 @@ router.post('/chat', protect, async (req, res, next) => {
     7. Help with homework questions
     8. Provide emotional support when needed
     
-    Keep responses conversational and age-appropriate for a ${user.grade} student.`;
+    Keep responses conversational and age-appropriate for a grade ${grade} student.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -78,7 +101,7 @@ router.post('/chat', protect, async (req, res, next) => {
       response: aiResponse,
       context: {
         upcomingAssignments: recentAssignments.length,
-        wellnessScore: recentWellness?.wellnessScore
+        hasWellnessData: !!recentWellness
       }
     });
 
@@ -107,19 +130,48 @@ router.post('/chat', protect, async (req, res, next) => {
 // @access  Private
 router.get('/study-suggestions', protect, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = req.user;
     
     // Get upcoming assignments
-    const upcomingAssignments = await Assignment.find({
-      students: req.user.id,
-      dueDate: { 
-        $gte: new Date(),
-        $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
+    const upcomingAssignments = await prisma.assignment.findMany({
+      where: {
+        class: {
+          studentClasses: {
+            some: {
+              studentId: req.user.student?.id,
+              status: 'active'
+            }
+          }
+        },
+        dueDate: { 
+          gte: new Date(),
+          lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
+        }
+      },
+      include: {
+        class: {
+          include: {
+            subject: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
       }
-    }).populate('subject', 'name').sort({ dueDate: 1 });
+    });
 
     // Get recent wellness data
-    const wellnessSummary = await WellnessEntry.getWellnessSummary(req.user.id, 7);
+    const wellnessRecords = await prisma.mentalHealthRecord.findMany({
+      where: {
+        studentId: req.user.student?.id,
+        date: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        }
+      }
+    });
+
+    const wellnessSummary = calculateWellnessSummary(wellnessRecords);
 
     const suggestions = [];
 
@@ -137,7 +189,7 @@ router.get('/study-suggestions', protect, async (req, res, next) => {
           description: `You have ${urgentAssignments.length} assignment(s) due soon. Consider prioritizing these.`,
           assignments: urgentAssignments.map(a => ({
             title: a.title,
-            subject: a.subject.name,
+            subject: a.class.subject.name,
             dueDate: a.dueDate
           }))
         });
@@ -146,7 +198,7 @@ router.get('/study-suggestions', protect, async (req, res, next) => {
       // Subject-specific study suggestions
       const subjectCounts = {};
       upcomingAssignments.forEach(a => {
-        subjectCounts[a.subject.name] = (subjectCounts[a.subject.name] || 0) + 1;
+        subjectCounts[a.class.subject.name] = (subjectCounts[a.class.subject.name] || 0) + 1;
       });
 
       const heaviestSubject = Object.keys(subjectCounts).reduce((a, b) => 
@@ -209,8 +261,8 @@ router.get('/study-suggestions', protect, async (req, res, next) => {
       suggestions,
       summary: {
         upcomingAssignments: upcomingAssignments.length,
-        wellnessScore: wellnessSummary.averageWellnessScore,
-        stressLevel: wellnessSummary.averageStress
+        wellnessScore: wellnessSummary.averageWellnessScore || 0,
+        stressLevel: wellnessSummary.averageStress || 0
       }
     });
 
@@ -226,14 +278,35 @@ router.post('/study-plan', protect, async (req, res, next) => {
   try {
     const { timeAvailable, subjects, preferences } = req.body;
 
-    const user = await User.findById(req.user.id);
+    const user = req.user;
     
     // Get assignments for the specified subjects
-    const assignments = await Assignment.find({
-      students: req.user.id,
-      subject: { $in: subjects },
-      dueDate: { $gte: new Date() }
-    }).populate('subject', 'name').sort({ dueDate: 1 });
+    const assignments = await prisma.assignment.findMany({
+      where: {
+        class: {
+          studentClasses: {
+            some: {
+              studentId: req.user.student?.id,
+              status: 'active'
+            }
+          },
+          subjectId: { in: subjects }
+        },
+        dueDate: { gte: new Date() }
+      },
+      include: {
+        class: {
+          include: {
+            subject: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { dueDate: 'asc' }
+    });
 
     // Simple study plan algorithm
     const studyPlan = {
@@ -256,7 +329,7 @@ router.post('/study-plan', protect, async (req, res, next) => {
       else if (daysUntilDue >= 7) priority = 'low';
 
       studyPlan.sessions.push({
-        subject: assignment.subject.name,
+        subject: assignment.class.subject.name,
         assignment: assignment.title,
         duration: sessionTime,
         priority,
@@ -314,9 +387,10 @@ router.post('/homework-help', protect, async (req, res, next) => {
       });
     }
 
-    const user = await User.findById(req.user.id);
+    const user = req.user;
+    const grade = user.student?.grade || 'N/A';
 
-    const systemPrompt = `You are a helpful tutor for ${user.firstName}, a ${user.grade} student. 
+    const systemPrompt = `You are a helpful tutor for ${user.student?.firstName || 'Student'}, a grade ${grade} student. 
     
     Subject: ${subject || 'General'}
     
@@ -326,7 +400,7 @@ router.post('/homework-help', protect, async (req, res, next) => {
     3. Ask clarifying questions if needed
     4. Provide hints and explanations
     5. Encourage critical thinking
-    6. Use age-appropriate language for a ${user.grade} student
+    6. Use age-appropriate language for a grade ${grade} student
     7. If it's a math problem, show the process step by step
     8. For essays, help with structure and ideas, not write the content
     
@@ -365,5 +439,28 @@ router.post('/homework-help', protect, async (req, res, next) => {
     });
   }
 });
+
+// Helper function to calculate wellness summary
+function calculateWellnessSummary(records) {
+  if (records.length === 0) {
+    return {
+      averageWellnessScore: 0,
+      averageStress: 0,
+      averageMood: 0
+    };
+  }
+
+  const totals = records.reduce((acc, record) => {
+    acc.stress += record.stressLevel || 0;
+    acc.mood += record.moodRating || 0;
+    return acc;
+  }, { stress: 0, mood: 0 });
+
+  return {
+    averageWellnessScore: Math.round((totals.mood / records.length) * 10),
+    averageStress: Math.round((totals.stress / records.length) * 10) / 10,
+    averageMood: Math.round((totals.mood / records.length) * 10) / 10
+  };
+}
 
 export default router;

@@ -482,6 +482,28 @@ router.get('/:id/dashboard', protect, checkResourceOwnership('student'), async (
       }
     });
 
+    // Get gamification data
+    const achievements = await prisma.studentProgress.findMany({
+      where: {
+        studentId,
+        skillName: { startsWith: 'achievement_' }
+      }
+    });
+
+    const totalXP = achievements.reduce((sum, achievement) => {
+      const achievementKey = achievement.skillName.replace('achievement_', '');
+      const ACHIEVEMENTS = {
+        'first-assignment': { xp: 50 },
+        'study-warrior': { xp: 200 },
+        'perfect-score': { xp: 300 },
+        'knowledge-master': { xp: 500 },
+        'wellness-champion': { xp: 400 }
+      };
+      return sum + (ACHIEVEMENTS[achievementKey]?.xp || 0);
+    }, 0);
+
+    const studyStreak = await calculateStudyStreak(studentId);
+
     res.status(200).json({
       success: true,
       data: {
@@ -489,13 +511,54 @@ router.get('/:id/dashboard', protect, checkResourceOwnership('student'), async (
         recentGrades,
         subjectProgress,
         recentWellness,
-        learningStats
+        learningStats,
+        statistics: {
+          studyStreak,
+          totalXP,
+          achievementsCount: achievements.length
+        }
       }
     });
   } catch (error) {
     next(error);
   }
 });
+
+// Helper function to calculate study streak
+async function calculateStudyStreak(studentId) {
+  const recentAnalytics = await prisma.learningAnalytic.findMany({
+    where: {
+      studentId,
+      activityType: 'study_session',
+      timestamp: {
+        gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      }
+    },
+    orderBy: { timestamp: 'desc' }
+  });
+
+  const studyDates = new Set();
+  recentAnalytics.forEach(analytics => {
+    const date = analytics.timestamp.toDateString();
+    studyDates.add(date);
+  });
+
+  let streak = 0;
+  const today = new Date();
+  
+  for (let i = 0; i < 30; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(today.getDate() - i);
+    
+    if (studyDates.has(checkDate.toDateString())) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
 
 // @desc    Enroll student in class
 // @route   POST /api/students/:id/enroll

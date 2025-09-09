@@ -522,6 +522,9 @@ router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), vali
       }
     });
 
+    // Check for achievements
+    await checkAssignmentAchievements(studentId, finalMarks, assignment.totalMarks);
+
     res.status(200).json({
       success: true,
       message: 'Assignment graded successfully',
@@ -531,6 +534,64 @@ router.put('/:id/grade/:studentId', protect, authorize('teacher', 'admin'), vali
     next(error);
   }
 });
+
+// Helper function to check assignment-related achievements
+async function checkAssignmentAchievements(studentId, marksObtained, totalMarks) {
+  try {
+    // Check for perfect score achievement
+    if (marksObtained === totalMarks) {
+      const hasAchievement = await prisma.studentProgress.findFirst({
+        where: {
+          studentId,
+          skillName: 'achievement_perfect-score'
+        }
+      });
+
+      if (!hasAchievement) {
+        await prisma.studentProgress.create({
+          data: {
+            studentId,
+            skillName: 'achievement_perfect-score',
+            currentLevel: 1,
+            progressPercentage: 100,
+            lastAssessmentDate: new Date()
+          }
+        });
+      }
+    }
+
+    // Check for knowledge master achievement (50 assignments)
+    const completedAssignments = await prisma.assignmentSubmission.count({
+      where: {
+        studentId,
+        status: { not: 'draft' }
+      }
+    });
+
+    if (completedAssignments >= 50) {
+      const hasAchievement = await prisma.studentProgress.findFirst({
+        where: {
+          studentId,
+          skillName: 'achievement_knowledge-master'
+        }
+      });
+
+      if (!hasAchievement) {
+        await prisma.studentProgress.create({
+          data: {
+            studentId,
+            skillName: 'achievement_knowledge-master',
+            currentLevel: 1,
+            progressPercentage: 100,
+            lastAssessmentDate: new Date()
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error checking achievements:', error);
+  }
+}
 
 // @desc    Update assignment
 // @route   PUT /api/assignments/:id

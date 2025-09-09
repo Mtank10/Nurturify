@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useStudentDashboard } from '../hooks/useApi';
+import { useStudentDashboard, useGamificationProfile } from '../hooks/useApi';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { ActivityFeed } from '../components/dashboard/ActivityFeed';
 import { Card } from '../components/ui/Card';
@@ -21,6 +21,7 @@ export const Dashboard: React.FC = () => {
   const { data: dashboardData, loading, error } = useStudentDashboard(
     user?.role === 'student' ? user.student?.id : ''
   );
+  const { data: gamificationData } = useGamificationProfile();
 
   if (loading) {
     return (
@@ -49,6 +50,7 @@ export const Dashboard: React.FC = () => {
   const recentGrades = dashboardData?.recentGrades || [];
   const subjectProgress = dashboardData?.subjectProgress || [];
   const statistics = dashboardData?.statistics || {};
+  const playerStats = gamificationData || { level: 1, totalPoints: 0, streakDays: 0 };
 
   return (
     <div className="space-y-6">
@@ -87,8 +89,8 @@ export const Dashboard: React.FC = () => {
         />
         <StatsCard
           title="Study Streak"
-          value={`${statistics.studyStreak || 0} days`}
-          change={statistics.studyStreak > 7 ? 'Great streak!' : 'Keep going!'}
+          value={`${playerStats.streakDays || 0} days`}
+          change={playerStats.streakDays > 7 ? 'Great streak!' : 'Keep going!'}
           changeType="positive"
           icon={Trophy}
           color="accent"
@@ -177,7 +179,17 @@ export const Dashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+          {user?.role === 'student' && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Trophy className="w-4 h-4 text-warning-500" />
+              <span>Level {playerStats.level}</span>
+              <span>•</span>
+              <span>{playerStats.totalPoints} points</span>
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Submit Assignment', icon: BookOpen, color: 'primary' },

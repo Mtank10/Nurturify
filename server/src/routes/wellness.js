@@ -104,6 +104,9 @@ router.post('/records/:studentId', protect, checkResourceOwnership('mental_healt
     // Check for alerts based on the new record
     await checkMentalHealthAlerts(studentId, record);
 
+    // Check for wellness achievements
+    await checkWellnessAchievements(studentId);
+
     res.status(201).json({
       success: true,
       data: record
@@ -161,6 +164,9 @@ router.put('/records/:id', protect, async (req, res, next) => {
 
     // Check for alerts based on updated record
     await checkMentalHealthAlerts(existingRecord.studentId, updatedRecord);
+
+    // Check for wellness achievements
+    await checkWellnessAchievements(existingRecord.studentId);
 
     res.status(200).json({
       success: true,
@@ -560,6 +566,43 @@ async function checkMentalHealthAlerts(studentId, record) {
     } catch (error) {
       console.error('Error creating mental health alert:', error);
     }
+  }
+}
+
+async function checkWellnessAchievements(studentId) {
+  try {
+    // Check for wellness champion achievement (30 days of records)
+    const wellnessRecords = await prisma.mentalHealthRecord.count({
+      where: {
+        studentId,
+        date: {
+          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        }
+      }
+    });
+
+    if (wellnessRecords >= 30) {
+      const hasAchievement = await prisma.studentProgress.findFirst({
+        where: {
+          studentId,
+          skillName: 'achievement_wellness-champion'
+        }
+      });
+
+      if (!hasAchievement) {
+        await prisma.studentProgress.create({
+          data: {
+            studentId,
+            skillName: 'achievement_wellness-champion',
+            currentLevel: 1,
+            progressPercentage: 100,
+            lastAssessmentDate: new Date()
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error checking wellness achievements:', error);
   }
 }
 
