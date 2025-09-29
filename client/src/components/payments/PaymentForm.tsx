@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { AlertCircle, CreditCard, Lock } from 'lucide-react';
+import { CircleAlert as AlertCircle, CreditCard, Lock } from 'lucide-react';
 
 interface PaymentFormProps {
   amount: number;
