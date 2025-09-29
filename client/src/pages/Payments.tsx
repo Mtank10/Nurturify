@@ -5,7 +5,7 @@ import { Badge } from '../components/ui/Badge';
 import { SubscriptionPlans } from '../components/payments/SubscriptionPlans';
 import { PaymentModal } from '../components/payments/PaymentModal';
 import { useAuth } from '../hooks/useAuth';
-import { CreditCard, Calendar, User, History, Download, CircleCheck as CheckCircle, Clock, Circle as XCircle } from 'lucide-react';
+import { CreditCard, Calendar, User, History, Download, CheckCircle, Clock, Circle as XCircle } from 'lucide-react';
 
 interface PaymentHistory {
   id: string;
