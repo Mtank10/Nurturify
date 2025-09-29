@@ -1,21 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import {
-  Home,
-  BookOpen,
-  Heart,
-  Compass,
-  Calendar,
-  MessageSquare,
-  BookMarked,
-  Trophy,
-  BarChart3,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Bot,
-  CreditCard,
-} from 'lucide-react';
+import { Hop as Home, BookOpen, Heart, Compass, Calendar, MessageSquare, BookMarked, Trophy, ChartBar as BarChart3, Settings, ChevronLeft, ChevronRight, Bot, CreditCard } from 'lucide-react';
 
 interface SidebarProps {
   activeModule: string;

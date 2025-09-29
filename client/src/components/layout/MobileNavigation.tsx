@@ -1,14 +1,5 @@
 import React from 'react';
-import { 
-  Home, 
-  BookOpen, 
-  Heart, 
-  MessageSquare, 
-  User,
-  CreditCard,
-  Trophy,
-  BarChart3
-} from 'lucide-react';
+import { Hop as Home, BookOpen, Heart, MessageSquare, User, CreditCard, Trophy, ChartBar as BarChart3 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface MobileNavigationProps {
