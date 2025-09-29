@@ -23,6 +23,7 @@ import notificationsRoutes from './routes/notifications.js';
 import messagesRoutes from './routes/messages.js';
 import analyticsRoutes from './routes/analytics.js';
 import gamificationRoutes from './routes/gamification.js';
+import paymentsRoutes from './routes/payments.js';
 
 // Load environment variables
 dotenv.config();
@@ -100,6 +101,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/gamification', gamificationRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

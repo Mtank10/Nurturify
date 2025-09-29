@@ -308,6 +308,36 @@ class ApiService {
       body: JSON.stringify(questionData),
     });
   }
+
+  // Payment methods
+  async createPaymentIntent(paymentData: any) {
+    return this.request<any>('/payments/create-intent', {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  async createSubscription(subscriptionData: any) {
+    return this.request<any>('/payments/create-subscription', {
+      method: 'POST',
+      body: JSON.stringify(subscriptionData),
+    });
+  }
+
+  async cancelSubscription(subscriptionId: string) {
+    return this.request<any>(`/payments/cancel-subscription/${subscriptionId}`, {
+      method: 'POST',
+    });
+  }
+
+  async getPaymentHistory(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request<any>(`/payments/history${queryString}`);
+  }
+
+  async getSubscriptionStatus() {
+    return this.request<any>('/payments/subscription-status');
+  }
 }
 
 export const apiService = new ApiService();

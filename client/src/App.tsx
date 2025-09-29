@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { StripeProvider } from './contexts/StripeContext';
 import { LoginForm } from './components/auth/LoginForm';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
+import { MobileNavigation } from './components/layout/MobileNavigation';
 import { Dashboard } from './pages/Dashboard';
 import { Learning } from './pages/Learning';
 import { Wellness } from './pages/Wellness';
@@ -12,6 +14,7 @@ import { Communication } from './pages/Communication';
 import { Resources } from './pages/Resources';
 import { Analytics } from './pages/Analytics';
 import { Gamification } from './pages/Gamification';
+import { Payments } from './pages/Payments';
 import { AIAssistant } from './components/chat/AIAssistant';
 import { Button } from './components/ui/Button';
 import { Bot } from 'lucide-react';
@@ -56,6 +59,8 @@ const AppContent: React.FC = () => {
         return <Analytics />;
       case 'gamification':
         return <Gamification />;
+      case 'payments':
+        return <Payments />;
       default:
         return (
           <div className="flex items-center justify-center h-full">
@@ -71,25 +76,34 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar activeModule={activeModule} onModuleChange={setActiveModule} />
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block">
+        <Sidebar activeModule={activeModule} onModuleChange={setActiveModule} />
+      </div>
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
           {renderContent()}
         </main>
       </div>
 
+      {/* Mobile Navigation */}
+      <MobileNavigation 
+        activeModule={activeModule} 
+        onModuleChange={setActiveModule} 
+      />
+
       {/* Floating AI Assistant Button */}
-      <div className="fixed bottom-6 right-6">
+      <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6">
         <Button
           onClick={() => setIsAIOpen(true)}
           icon={Bot}
           size="lg"
-          className="rounded-full shadow-large hover:shadow-xl"
+          className="rounded-full shadow-large hover:shadow-xl w-12 h-12 md:w-auto md:h-auto"
         >
-          Ask AI
+          <span className="hidden md:inline">Ask AI</span>
         </Button>
       </div>
 
@@ -101,9 +115,11 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <StripeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </StripeProvider>
   );
 }
 

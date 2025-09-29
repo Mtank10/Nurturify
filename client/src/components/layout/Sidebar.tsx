@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 import {
   Home,
   BookOpen,
@@ -13,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Bot,
+  CreditCard,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,21 +22,61 @@ interface SidebarProps {
   onModuleChange: (module: string) => void;
 }
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'learning', label: 'Learning', icon: BookOpen },
-  { id: 'wellness', label: 'Mental Health', icon: Heart },
-  { id: 'career', label: 'Career Guidance', icon: Compass },
-  { id: 'assistant', label: 'Personal Assistant', icon: Calendar },
-  { id: 'communication', label: 'Communication', icon: MessageSquare },
-  { id: 'resources', label: 'Resources', icon: BookMarked },
-  { id: 'gamification', label: 'Achievements', icon: Trophy },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
-
 export const Sidebar: React.FC<SidebarProps> = ({ activeModule, onModuleChange }) => {
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  const getMenuItems = () => {
+    const baseItems = [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'learning', label: 'Learning', icon: BookOpen },
+    ];
+
+    const roleSpecificItems = [];
+
+    if (user?.role === 'student') {
+      roleSpecificItems.push(
+        { id: 'wellness', label: 'Mental Health', icon: Heart },
+        { id: 'career', label: 'Career Guidance', icon: Compass },
+        { id: 'gamification', label: 'Achievements', icon: Trophy },
+        { id: 'payments', label: 'Payments', icon: CreditCard },
+        { id: 'resources', label: 'Resources', icon: BookMarked }
+      );
+    }
+
+    if (user?.role === 'teacher') {
+      roleSpecificItems.push(
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'communication', label: 'Communication', icon: MessageSquare },
+        { id: 'resources', label: 'Resources', icon: BookMarked }
+      );
+    }
+
+    if (user?.role === 'parent') {
+      roleSpecificItems.push(
+        { id: 'wellness', label: 'Mental Health', icon: Heart },
+        { id: 'payments', label: 'Payments', icon: CreditCard },
+        { id: 'communication', label: 'Communication', icon: MessageSquare }
+      );
+    }
+
+    if (['admin', 'counselor'].includes(user?.role || '')) {
+      roleSpecificItems.push(
+        { id: 'wellness', label: 'Mental Health', icon: Heart },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'communication', label: 'Communication', icon: MessageSquare },
+        { id: 'payments', label: 'Payments', icon: CreditCard },
+        { id: 'resources', label: 'Resources', icon: BookMarked }
+      );
+    }
+
+    // Always add settings at the end
+    roleSpecificItems.push({ id: 'settings', label: 'Settings', icon: Settings });
+
+    return [...baseItems, ...roleSpecificItems];
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <div className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'}`}>
@@ -90,12 +132,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModule, onModuleChange }
       <div className="p-4 border-t border-gray-200">
         <div className={`flex items-center gap-3 px-3 py-2 ${collapsed ? 'justify-center' : ''}`}>
           <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
-            JS
+            {(user?.student?.firstName || user?.teacher?.firstName || user?.parent?.firstName || 'U').charAt(0)}
           </div>
           {!collapsed && (
             <div>
-              <p className="text-sm font-medium text-gray-900">Jane Smith</p>
-              <p className="text-xs text-gray-500">Grade 10 Student</p>
+              <p className="text-sm font-medium text-gray-900">
+                {user?.student?.firstName || user?.teacher?.firstName || user?.parent?.firstName || 'User'} {user?.student?.lastName || user?.teacher?.lastName || user?.parent?.lastName || ''}
+              </p>
+              <p className="text-xs text-gray-500 capitalize">
+                {user?.role === 'student' && user?.student?.grade ? `Grade ${user.student.grade} Student` : user?.role}
+              </p>
             </div>
           )}
         </div>
