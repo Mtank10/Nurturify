@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { CircleAlert as AlertCircle, CreditCard, Lock } from 'lucide-react';
+import {  CreditCard, Lock } from 'lucide-react';
 
 interface PaymentFormProps {
   amount: number;
@@ -121,7 +121,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
         {error && (
           <div className="flex items-center gap-2 p-3 bg-error-50 border border-error-200 rounded-xl text-error-700">
-            <AlertCircle className="w-4 h-4" />
+            {/* <AlertCircle className="w-4 h-4" /> */}
             <span className="text-sm">{error}</span>
           </div>
         )}
