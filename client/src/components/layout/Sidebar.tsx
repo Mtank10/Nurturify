@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Hop as Home, BookOpen, Heart, Compass, Calendar, MessageSquare, BookMarked, Trophy, ChartBar, Settings, ChevronLeft, ChevronRight, Bot, CreditCard } from 'lucide-react';
+import { Hop as Home, BookOpen, Heart, Compass, Calendar, MessageSquare, BookMarked, Trophy, Settings, ChevronLeft, ChevronRight, Bot, CreditCard } from 'lucide-react';
 
 interface SidebarProps {
   activeModule: string;
@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModule, onModuleChange }
 
     if (user?.role === 'teacher') {
       roleSpecificItems.push(
-        { id: 'analytics', label: 'Analytics', icon: ChartBar },
+        { id: 'analytics', label: 'Analytics', icon: Compass },
         { id: 'communication', label: 'Communication', icon: MessageSquare },
         { id: 'resources', label: 'Resources', icon: BookMarked }
       );
@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModule, onModuleChange }
     if (['admin', 'counselor'].includes(user?.role || '')) {
       roleSpecificItems.push(
         { id: 'wellness', label: 'Mental Health', icon: Heart },
-        { id: 'analytics', label: 'Analytics', icon: ChartBar },
+        { id: 'analytics', label: 'Analytics', icon: Compass },
         { id: 'communication', label: 'Communication', icon: MessageSquare },
         { id: 'payments', label: 'Payments', icon: CreditCard },
         { id: 'resources', label: 'Resources', icon: BookMarked }
