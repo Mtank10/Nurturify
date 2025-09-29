@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hop as Home, BookOpen, Heart, MessageSquare, User, CreditCard, Trophy, ChartBar as BarChart3 } from 'lucide-react';
+import { Hop as Home, BookOpen, Heart, MessageSquare, User, CreditCard, Trophy } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface MobileNavigationProps {
@@ -31,7 +31,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
     if (user?.role === 'teacher') {
       roleSpecificItems.push(
-        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'analytics', label: 'Analytics', icon: BookOpen },
         { id: 'communication', label: 'Messages', icon: MessageSquare }
       );
     }
@@ -45,7 +45,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
     if (['admin', 'counselor'].includes(user?.role || '')) {
       roleSpecificItems.push(
-        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'analytics', label: 'Analytics', icon: BookOpen },
         { id: 'communication', label: 'Messages', icon: MessageSquare },
         { id: 'payments', label: 'Payments', icon: CreditCard }
       );
