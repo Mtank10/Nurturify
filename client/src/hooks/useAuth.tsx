@@ -1,6 +1,4 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import bcrypt from 'bcryptjs';
 
 interface User {
   id: string;
