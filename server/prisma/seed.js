@@ -60,169 +60,169 @@ async function main() {
     }
   });
 
-  // Create sample school
-  const school = await prisma.school.create({
-    data: {
-      name: 'Demo High School',
-      code: 'DHS001',
-      type: 'public',
-      address: '123 Education Street',
-      city: 'Demo City',
-      state: 'Demo State',
-      postalCode: '12345',
-      phone: '+1-555-0123',
-      email: 'info@demohigh.edu',
-      principalName: 'Dr. Jane Principal',
-      establishedYear: 1995,
-      board: 'State'
-    }
-  });
+  // // Create sample school
+  // const school = await prisma.school.create({
+  //   data: {
+  //     name: 'Demo High School',
+  //     code: 'DHS001',
+  //     type: 'public',
+  //     address: '123 Education Street',
+  //     city: 'Demo City',
+  //     state: 'Demo State',
+  //     postalCode: '12345',
+  //     phone: '+1-555-0123',
+  //     email: 'info@demohigh.edu',
+  //     principalName: 'Dr. Jane Principal',
+  //     establishedYear: 1995,
+  //     board: 'State'
+  //   }
+  // });
 
-  // Create subjects
-  const subjects = await Promise.all([
-    prisma.subject.create({
-      data: {
-        name: 'Mathematics',
-        code: 'MATH',
-        grade: 10,
-        description: 'Advanced mathematics including algebra and geometry',
-        category: 'core',
-        credits: 4,
-        colorCode: '#3B82F6'
-      }
-    }),
-    prisma.subject.create({
-      data: {
-        name: 'Science',
-        code: 'SCI',
-        grade: 10,
-        description: 'General science covering physics, chemistry, and biology',
-        category: 'core',
-        credits: 4,
-        colorCode: '#10B981'
-      }
-    }),
-    prisma.subject.create({
-      data: {
-        name: 'English',
-        code: 'ENG',
-        grade: 10,
-        description: 'English language and literature',
-        category: 'core',
-        credits: 3,
-        colorCode: '#F59E0B'
-      }
-    }),
-    prisma.subject.create({
-      data: {
-        name: 'History',
-        code: 'HIST',
-        grade: 10,
-        description: 'World history and social studies',
-        category: 'core',
-        credits: 3,
-        colorCode: '#EF4444'
-      }
-    })
-  ]);
+  // // Create subjects
+  // const subjects = await Promise.all([
+  //   prisma.subject.create({
+  //     data: {
+  //       name: 'Mathematics',
+  //       code: 'MATH',
+  //       grade: 10,
+  //       description: 'Advanced mathematics including algebra and geometry',
+  //       category: 'core',
+  //       credits: 4,
+  //       colorCode: '#3B82F6'
+  //     }
+  //   }),
+  //   prisma.subject.create({
+  //     data: {
+  //       name: 'Science',
+  //       code: 'SCI',
+  //       grade: 10,
+  //       description: 'General science covering physics, chemistry, and biology',
+  //       category: 'core',
+  //       credits: 4,
+  //       colorCode: '#10B981'
+  //     }
+  //   }),
+  //   prisma.subject.create({
+  //     data: {
+  //       name: 'English',
+  //       code: 'ENG',
+  //       grade: 10,
+  //       description: 'English language and literature',
+  //       category: 'core',
+  //       credits: 3,
+  //       colorCode: '#F59E0B'
+  //     }
+  //   }),
+  //   prisma.subject.create({
+  //     data: {
+  //       name: 'History',
+  //       code: 'HIST',
+  //       grade: 10,
+  //       description: 'World history and social studies',
+  //       category: 'core',
+  //       credits: 3,
+  //       colorCode: '#EF4444'
+  //     }
+  //   })
+  // ]);
 
-  // Create admin user
-  const adminUser = await prisma.user.create({
-    data: {
-      email: 'admin@demo.com',
-      passwordHash: await bcrypt.hash('admin123', 12),
-      role: 'admin',
-      status: 'active',
-      emailVerified: true,
-      profileCompleted: true
-    }
-  });
+  // // Create admin user
+  // const adminUser = await prisma.user.create({
+  //   data: {
+  //     email: 'admin@demo.com',
+  //     passwordHash: await bcrypt.hash('admin123', 12),
+  //     role: 'admin',
+  //     status: 'active',
+  //     emailVerified: true,
+  //     profileCompleted: true
+  //   }
+  // });
 
-  // Create teacher user and profile
-  const teacherUser = await prisma.user.create({
-    data: {
-      email: 'teacher@demo.com',
-      passwordHash: await bcrypt.hash('teacher123', 12),
-      role: 'teacher',
-      status: 'active',
-      emailVerified: true,
-      profileCompleted: true,
-      teacher: {
-        create: {
-          teacherId: 'TCH001',
-          firstName: 'John',
-          lastName: 'Teacher',
-          subjects: [subjects[0].id, subjects[1].id], // Math and Science
-          qualifications: 'M.Ed in Mathematics, B.Sc in Physics',
-          experienceYears: 8,
-          schoolId: school.id,
-          department: 'Science & Mathematics'
-        }
-      }
-    },
-    include: {
-      teacher: true
-    }
-  });
+  // // Create teacher user and profile
+  // const teacherUser = await prisma.user.create({
+  //   data: {
+  //     email: 'teacher@demo.com',
+  //     passwordHash: await bcrypt.hash('teacher123', 12),
+  //     role: 'teacher',
+  //     status: 'active',
+  //     emailVerified: true,
+  //     profileCompleted: true,
+  //     teacher: {
+  //       create: {
+  //         teacherId: 'TCH001',
+  //         firstName: 'John',
+  //         lastName: 'Teacher',
+  //         subjects: [subjects[0].id, subjects[1].id], // Math and Science
+  //         qualifications: 'M.Ed in Mathematics, B.Sc in Physics',
+  //         experienceYears: 8,
+  //         schoolId: school.id,
+  //         department: 'Science & Mathematics'
+  //       }
+  //     }
+  //   },
+  //   include: {
+  //     teacher: true
+  //   }
+  // });
 
-  // Create parent user and profile
-  const parentUser = await prisma.user.create({
-    data: {
-      email: 'parent@demo.com',
-      passwordHash: await bcrypt.hash('parent123', 12),
-      role: 'parent',
-      status: 'active',
-      emailVerified: true,
-      profileCompleted: true,
-      parent: {
-        create: {
-          firstName: 'Mary',
-          lastName: 'Parent',
-          relationshipToStudent: 'mother',
-          occupation: 'Software Engineer',
-          workplace: 'Tech Corp Inc.',
-          address: '456 Parent Avenue, Demo City'
-        }
-      }
-    },
-    include: {
-      parent: true
-    }
-  });
+  // // Create parent user and profile
+  // const parentUser = await prisma.user.create({
+  //   data: {
+  //     email: 'parent@demo.com',
+  //     passwordHash: await bcrypt.hash('parent123', 12),
+  //     role: 'parent',
+  //     status: 'active',
+  //     emailVerified: true,
+  //     profileCompleted: true,
+  //     parent: {
+  //       create: {
+  //         firstName: 'Mary',
+  //         lastName: 'Parent',
+  //         relationshipToStudent: 'mother',
+  //         occupation: 'Software Engineer',
+  //         workplace: 'Tech Corp Inc.',
+  //         address: '456 Parent Avenue, Demo City'
+  //       }
+  //     }
+  //   },
+  //   include: {
+  //     parent: true
+  //   }
+  // });
 
-  // Create student user and profile
-  const studentUser = await prisma.user.create({
-    data: {
-      email: 'student@demo.com',
-      passwordHash: await bcrypt.hash('student123', 12),
-      role: 'student',
-      status: 'active',
-      emailVerified: true,
-      profileCompleted: true,
-      student: {
-        create: {
-          studentId: 'STU001',
-          firstName: 'Jane',
-          lastName: 'Student',
-          dateOfBirth: new Date('2008-05-15'),
-          gender: 'female',
-          grade: 10,
-          section: 'A',
-          schoolId: school.id,
-          parentId: parentUser.parent.id,
-          admissionDate: new Date('2023-09-01'),
-          bloodGroup: 'O+',
-          address: '456 Parent Avenue, Demo City',
-          emergencyContact: '+1-555-0456',
-          interests: ['mathematics', 'science', 'reading'],
-          learningStyle: 'visual'
-        }
-      }
-    },
-    include: {
-      student: true
-    }
-  });
+  // // Create student user and profile
+  // const studentUser = await prisma.user.create({
+  //   data: {
+  //     email: 'student@demo.com',
+  //     passwordHash: await bcrypt.hash('student123', 12),
+  //     role: 'student',
+  //     status: 'active',
+  //     emailVerified: true,
+  //     profileCompleted: true,
+  //     student: {
+  //       create: {
+  //         studentId: 'STU001',
+  //         firstName: 'Jane',
+  //         lastName: 'Student',
+  //         dateOfBirth: new Date('2008-05-15'),
+  //         gender: 'female',
+  //         grade: 10,
+  //         section: 'A',
+  //         schoolId: school.id,
+  //         parentId: parentUser.parent.id,
+  //         admissionDate: new Date('2023-09-01'),
+  //         bloodGroup: 'O+',
+  //         address: '456 Parent Avenue, Demo City',
+  //         emergencyContact: '+1-555-0456',
+  //         interests: ['mathematics', 'science', 'reading'],
+  //         learningStyle: 'visual'
+  //       }
+  //     }
+  //   },
+  //   include: {
+  //     student: true
+  //   }
+  // });
 
   // Create classes
   const mathClass = await prisma.class.create({
