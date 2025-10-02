@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { Eye, EyeOff, Mail, Lock, CircleAlert as AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock,  AlertCircle } from 'lucide-react';
 import { RegisterForm } from './RegisterForm';
 
 export const LoginForm: React.FC = () => {
