@@ -1,45 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase';
+import { useStudentDashboard, useGamificationProfile } from '../hooks/useApi';
 import { StatsCard } from '../components/dashboard/StatsCard';
+import { ActivityFeed } from '../components/dashboard/ActivityFeed';
 import { Card } from '../components/ui/Card';
-import { BookOpen, Users, GraduationCap, TrendingUp, Heart, Trophy, Calendar, CircleCheck as CheckCircle } from 'lucide-react';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { 
+  BookOpen, 
+  Calendar, 
+  Heart, 
+  Trophy, 
+  TrendingUp, 
+  Clock,
+  CheckCircle,
+  AlertCircle 
+} from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    totalClasses: 0,
-    totalSubjects: 0,
-    totalAssignments: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, [user]);
-
-  const loadDashboardData = async () => {
-    try {
-      const [studentsCount, subjectsCount, classesCount, assignmentsCount] = await Promise.all([
-        supabase.from('students').select('id', { count: 'exact', head: true }),
-        supabase.from('subjects').select('id', { count: 'exact', head: true }),
-        supabase.from('classes').select('id', { count: 'exact', head: true }),
-        supabase.from('assignments').select('id', { count: 'exact', head: true }),
-      ]);
-
-      setStats({
-        totalStudents: studentsCount.count || 0,
-        totalSubjects: subjectsCount.count || 0,
-        totalClasses: classesCount.count || 0,
-        totalAssignments: assignmentsCount.count || 0,
-      });
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: dashboardData, loading, error } = useStudentDashboard(
+    user?.role === 'student' ? user.student?.id : ''
+  );
+  const { data: gamificationData } = useGamificationProfile();
 
   if (loading) {
     return (
@@ -52,143 +34,177 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const getUserName = () => {
-    if (user?.student) return `${user.student.first_name} ${user.student.last_name}`;
-    if (user?.teacher) return `${user.teacher.first_name} ${user.teacher.last_name}`;
-    if (user?.parent) return `${user.parent.first_name} ${user.parent.last_name}`;
-    return user?.email || 'User';
-  };
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-error-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-gray-600">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const upcomingAssignments = dashboardData?.upcomingAssignments || [];
+  const recentGrades = dashboardData?.recentGrades || [];
+  const subjectProgress = dashboardData?.subjectProgress || [];
+  const statistics = dashboardData?.statistics || {};
+  const playerStats = gamificationData || { level: 1, totalPoints: 0, streakDays: 0 };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Welcome back, {getUserName()}!
+          Welcome back, {user?.student?.firstName || user?.teacher?.firstName || 'User'}!
         </h1>
-        <p className="text-gray-600">
-          Here's an overview of your educational platform.
-        </p>
+        <p className="text-gray-600">Here's what's happening with your studies today.</p>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
-          title="Total Students"
-          value={stats.totalStudents}
-          change={`${user?.role === 'student' ? 'You are enrolled' : 'Registered students'}`}
+          title="Assignments Due"
+          value={upcomingAssignments.length}
+          change={`${upcomingAssignments.filter(a => new Date(a.dueDate) <= new Date(Date.now() + 24*60*60*1000)).length} due today`}
           changeType="neutral"
-          icon={Users}
+          icon={BookOpen}
           color="primary"
         />
         <StatsCard
-          title="Total Subjects"
-          value={stats.totalSubjects}
-          change="Available courses"
+          title="Upcoming Exams"
+          value={upcomingAssignments.filter(a => a.type === 'exam').length}
+          change={upcomingAssignments.find(a => a.type === 'exam')?.title || 'None scheduled'}
           changeType="neutral"
-          icon={BookOpen}
+          icon={Calendar}
+          color="warning"
+        />
+        <StatsCard
+          title="Wellness Score"
+          value={dashboardData?.recentWellness?.wellnessScore ? `${Math.round(dashboardData.recentWellness.wellnessScore)}%` : 'N/A'}
+          change={dashboardData?.recentWellness ? 'Updated today' : 'No recent data'}
+          changeType="positive"
+          icon={Heart}
           color="accent"
         />
         <StatsCard
-          title="Active Classes"
-          value={stats.totalClasses}
-          change="Running sessions"
-          changeType="neutral"
-          icon={GraduationCap}
-          color="success"
-        />
-        <StatsCard
-          title="Assignments"
-          value={stats.totalAssignments}
-          change="Total assignments"
-          changeType="neutral"
-          icon={CheckCircle}
-          color="warning"
+          title="Study Streak"
+          value={`${playerStats.streakDays || 0} days`}
+          change={playerStats.streakDays > 7 ? 'Great streak!' : 'Keep going!'}
+          changeType="positive"
+          icon={Trophy}
+          color="accent"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Getting Started</h2>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 bg-primary-50 rounded-xl">
-              <GraduationCap className="w-5 h-5 text-primary-600 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-gray-900">Explore Subjects</h3>
-                <p className="text-sm text-gray-600">
-                  Browse available subjects and start your learning journey
-                </p>
-              </div>
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Progress Overview */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Subject Progress</h2>
+              <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                View Details
+              </button>
             </div>
-            <div className="flex items-start gap-3 p-3 bg-accent-50 rounded-xl">
-              <Heart className="w-5 h-5 text-accent-600 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-gray-900">Track Wellness</h3>
-                <p className="text-sm text-gray-600">
-                  Monitor your mental health and well-being daily
-                </p>
-              </div>
+            <div className="space-y-4">
+              {subjectProgress.length > 0 ? subjectProgress.map((progress: any) => (
+                <div key={progress.id} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-900">{progress.subject?.name}</span>
+                    <span className="text-sm text-gray-600">{Math.round(progress.progressPercentage || 0)}%</span>
+                  </div>
+                  <ProgressBar 
+                    progress={progress.progressPercentage || 0} 
+                    color={progress.progressPercentage >= 75 ? 'success' : progress.progressPercentage >= 50 ? 'warning' : 'error'}
+                  />
+                </div>
+              )) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">No progress data available</p>
+                </div>
+              )}
             </div>
-            <div className="flex items-start gap-3 p-3 bg-success-50 rounded-xl">
-              <Trophy className="w-5 h-5 text-success-600 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-gray-900">Earn Achievements</h3>
-                <p className="text-sm text-gray-600">
-                  Complete tasks and challenges to level up
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Role</span>
-              <span className="font-medium text-gray-900 capitalize">{user?.role}</span>
+          {/* Upcoming Tasks */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Upcoming Tasks</h2>
+              <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                View All
+              </button>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Email</span>
-              <span className="font-medium text-gray-900">{user?.email}</span>
+            <div className="space-y-3">
+              {upcomingAssignments.slice(0, 5).map((assignment: any) => {
+                const daysUntilDue = Math.ceil((new Date(assignment.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const isUrgent = daysUntilDue <= 1;
+                
+                return (
+                <div key={assignment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    {isUrgent ? (
+                      <AlertCircle className="w-5 h-5 text-error-500" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-gray-400" />
+                    )}
+                    <div>
+                      <p className="font-medium text-gray-900">{assignment.title}</p>
+                      <p className="text-sm text-gray-600">
+                        Due {new Date(assignment.dueDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <button className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors">
+                    <CheckCircle className="w-5 h-5 text-gray-400 hover:text-success-500" />
+                  </button>
+                </div>
+              )})}
+              {upcomingAssignments.length === 0 && (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-12 h-12 text-success-500 mx-auto mb-3" />
+                  <p className="text-gray-600">No upcoming assignments!</p>
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Status</span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
-                {user?.status}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Profile Completed</span>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                user?.profile_completed
-                  ? 'bg-success-100 text-success-800'
-                  : 'bg-warning-100 text-warning-800'
-              }`}>
-                {user?.profile_completed ? 'Yes' : 'No'}
-              </span>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
+
+        {/* Activity Feed */}
+        <div>
+          <ActivityFeed recentGrades={recentGrades} />
+        </div>
       </div>
 
+      {/* Quick Actions */}
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+          {user?.role === 'student' && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Trophy className="w-4 h-4 text-warning-500" />
+              <span>Level {playerStats.level}</span>
+              <span>•</span>
+              <span>{playerStats.totalPoints} points</span>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Learning', icon: BookOpen, color: 'primary' },
-            { label: 'Wellness', icon: Heart, color: 'accent' },
-            { label: 'Schedule', icon: Calendar, color: 'warning' },
-            { label: 'Progress', icon: TrendingUp, color: 'success' },
+            { label: 'Submit Assignment', icon: BookOpen, color: 'primary' },
+            { label: 'Schedule Study', icon: Calendar, color: 'accent' },
+            { label: 'Mood Check-in', icon: Heart, color: 'warning' },
+            { label: 'View Progress', icon: TrendingUp, color: 'success' },
           ].map((action) => {
             const Icon = action.icon;
             return (
               <button
                 key={action.label}
-                className="p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-center"
+                className={`p-4 rounded-xl bg-${action.color}-50 text-${action.color}-600 hover:bg-${action.color}-100 transition-colors text-center`}
               >
-                <Icon className="w-6 h-6 mx-auto mb-2 text-gray-700" />
-                <span className="text-sm font-medium text-gray-700">{action.label}</span>
+                <Icon className="w-6 h-6 mx-auto mb-2" />
+                <span className="text-sm font-medium">{action.label}</span>
               </button>
             );
           })}
