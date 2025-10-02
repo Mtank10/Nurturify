@@ -3,8 +3,29 @@ import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
+import { RegisterForm } from './RegisterForm';
 
 export const LoginForm: React.FC = () => {
+  const [showRegister, setShowRegister] = useState(false);
+
+  if (showRegister) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-accent-50 p-4">
+        <div className="w-full max-w-2xl space-y-6">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
+            <p className="text-gray-600">Register to get started with EduAI</p>
+          </div>
+          <RegisterForm onBackToLogin={() => setShowRegister(false)} />
+        </div>
+      </div>
+    );
+  }
+
+  return <LoginFormContent onShowRegister={() => setShowRegister(true)} />;
+};
+
+const LoginFormContent: React.FC<{ onShowRegister: () => void }> = ({ onShowRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -123,6 +144,16 @@ export const LoginForm: React.FC = () => {
             ))}
           </div>
         </Card>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={onShowRegister}
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Don't have an account? <span className="underline">Register here</span>
+          </button>
+        </div>
       </div>
     </div>
   );
