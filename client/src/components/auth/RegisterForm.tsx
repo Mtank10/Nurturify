@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, GraduationCap, BookOpen, Users } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, CircleAlert as AlertCircle, GraduationCap, BookOpen, Users } from 'lucide-react';
 
 export const RegisterForm: React.FC<{ onBackToLogin: () => void }> = ({ onBackToLogin }) => {
   const [formData, setFormData] = useState({

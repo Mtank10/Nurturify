@@ -3,16 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { Card } from '../components/ui/Card';
-import {
-  BookOpen,
-  Users,
-  GraduationCap,
-  TrendingUp,
-  Heart,
-  Trophy,
-  Calendar,
-  CheckCircle,
-} from 'lucide-react';
+import { BookOpen, Users, GraduationCap, TrendingUp, Heart, Trophy, Calendar, CircleCheck as CheckCircle } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
